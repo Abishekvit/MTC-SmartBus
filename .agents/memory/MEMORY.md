@@ -1,0 +1,1 @@
+- [OpenAPI codegen quirks](openapi-codegen-quirks.md) — avoid generated Zod/type export collisions from path parameters.

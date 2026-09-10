@@ -1,6 +1,6 @@
-# [Project name]
+# MTC SmartBus
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+MTC SmartBus helps Chennai riders compare live demo bus locations, current occupancy, and approximate crowding at a selected physical stop.
 
 ## Run & Operate
 
@@ -22,23 +22,33 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/mtc-smartbus/src/` — passenger and operator web experience.
+- `artifacts/api-server/src/routes/smartbus.ts` — in-memory demo provider and simulator.
+- `lib/api-spec/openapi.yaml` — source of truth for typed SmartBus API hooks.
+- `artifacts/mtc-smartbus/src/index.css` — SmartBus design tokens and global theme.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Demo data is intentionally served through the API server so the UI consumes realistic typed responses and can later swap in an authorized MTC provider.
+- Passenger forecasts are computed for a physical stop, not an abstract route stage, and are refreshed from simulated camera flow and bus movement.
+- Operator security screens expose event-level alerts only; they do not expose passenger identity or use facial recognition.
+- The browser polls read endpoints during demo mode instead of claiming a live MTC feed.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Passenger home with route and bus search, nearby buses, physical stop selection, live-demo map treatment, current occupancy, ETA, and target-stop forecast.
+- Route and stop directories with ordered physical stop timelines.
+- Operator fleet overview, bus-level camera/ETM reconciliation analytics, and event-level security review.
+- Explicit demo-mode labeling and loading, error, empty, and partial-data states.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+_No preferences recorded._
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after editing the OpenAPI contract.
+- The SmartBus API uses stable query-based detail endpoints (`/api/bus?busId=...`, `/api/route?routeId=...`) so generated Zod exports do not collide with generated parameter types.
 
 ## Pointers
 

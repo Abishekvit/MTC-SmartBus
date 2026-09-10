@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "MTC SmartBus"
+description = "A mobile-first Chennai public transport companion that combines live bus tracking, current occupancy, and dynamic physical-stop crowding forecasts for passengers, with an operator fleet monitoring view."
+version = "1.0.0"
+id = "artifacts/mtc-smartbus"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20798
+
+[services.development]
+run = "pnpm --filter @workspace/mtc-smartbus run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mtc-smartbus", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/mtc-smartbus/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20798"
+BASE_PATH = "/"

@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: routes
+  - name: buses
+  - name: stops
+  - name: operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,175 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /routes:
+    get:
+      operationId: getRoutes
+      tags: [routes]
+      summary: List demo MTC routes
+      responses:
+        "200":
+          description: Routes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Route"
+  /route:
+    get:
+      operationId: getRoute
+      tags: [routes]
+      summary: Get a route with ordered physical stops
+      parameters:
+        - in: query
+          name: routeId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+  /route/stops:
+    get:
+      operationId: getRouteStops
+      tags: [routes]
+      summary: List physical stops on a route
+      parameters:
+        - in: query
+          name: routeId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Route stops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stop"
+  /buses:
+    get:
+      operationId: getBuses
+      tags: [buses]
+      summary: List nearby demo buses
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: routeId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Buses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BusSummary"
+  /bus:
+    get:
+      operationId: getBus
+      tags: [buses]
+      summary: Get live bus details and physical-stop forecast
+      parameters:
+        - in: query
+          name: busId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: targetStopId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bus details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusDetails"
+  /stops:
+    get:
+      operationId: getStops
+      tags: [stops]
+      summary: List nearby or searched physical stops
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stop"
+  /stop:
+    get:
+      operationId: getStop
+      tags: [stops]
+      summary: Get stop details and approaching buses
+      parameters:
+        - in: query
+          name: stopId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stop details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopDetails"
+  /operator/overview:
+    get:
+      operationId: getOperatorOverview
+      tags: [operations]
+      summary: Get fleet monitoring overview
+      responses:
+        "200":
+          description: Fleet overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorOverview"
+  /operator/bus:
+    get:
+      operationId: getOperatorBus
+      tags: [operations]
+      summary: Get operator analytics for a bus
+      parameters:
+        - in: query
+          name: busId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Operator bus detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperatorBus"
+  /operator/security-events:
+    get:
+      operationId: getSecurityEvents
+      tags: [operations]
+      summary: List event-level security alerts
+      responses:
+        "200":
+          description: Security events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SecurityEvent"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +206,156 @@ components:
           type: string
       required:
         - status
+    Route:
+      type: object
+      required: [id, routeNumber, origin, destination, serviceType, stops]
+      properties:
+        id: { type: string }
+        routeNumber: { type: string }
+        origin: { type: string }
+        destination: { type: string }
+        serviceType: { type: string }
+        liveTracking: { type: boolean }
+        stops:
+          type: array
+          items: { $ref: "#/components/schemas/Stop" }
+    Stop:
+      type: object
+      required: [id, name, sequence, latitude, longitude]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        sequence: { type: integer }
+        latitude: { type: number }
+        longitude: { type: number }
+        routes:
+          type: array
+          items: { type: string }
+    BusSummary:
+      type: object
+      required: [id, number, routeId, routeNumber, origin, destination, serviceType, currentLocation, etaMinutes, currentOccupancy, predictedOccupancy, capacity, crowding, status, lastUpdatedSeconds]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        routeId: { type: string }
+        routeNumber: { type: string }
+        origin: { type: string }
+        destination: { type: string }
+        serviceType: { type: string }
+        currentLocation: { type: string }
+        etaMinutes: { type: integer }
+        currentOccupancy: { type: integer }
+        predictedOccupancy: { type: integer }
+        capacity: { type: integer }
+        crowding: { type: string, enum: [Low, Moderate, High, "Very high"] }
+        status: { type: string, enum: [LIVE, DELAYED, UNAVAILABLE] }
+        lastUpdatedSeconds: { type: integer }
+    BusDetails:
+      allOf:
+        - $ref: "#/components/schemas/BusSummary"
+        - type: object
+          required: [targetStop, nextStops, gps, flow, forecastConfidence, forecastUpdatedAt]
+          properties:
+            targetStop: { $ref: "#/components/schemas/Stop" }
+            nextStops:
+              type: array
+              items: { $ref: "#/components/schemas/StopArrival" }
+            gps:
+              $ref: "#/components/schemas/GpsPosition"
+            flow:
+              $ref: "#/components/schemas/PassengerFlow"
+            forecastConfidence: { type: string, enum: [Good, Moderate, Limited] }
+            forecastUpdatedAt: { type: string }
+    StopArrival:
+      type: object
+      required: [stop, etaMinutes, predictedOccupancy]
+      properties:
+        stop: { $ref: "#/components/schemas/Stop" }
+        etaMinutes: { type: integer }
+        predictedOccupancy: { type: integer }
+    GpsPosition:
+      type: object
+      required: [latitude, longitude, speed, heading, timestamp]
+      properties:
+        latitude: { type: number }
+        longitude: { type: number }
+        speed: { type: number }
+        heading: { type: number }
+        timestamp: { type: string }
+    PassengerFlow:
+      type: object
+      required: [entriesRecent, exitsRecent, timestamp, source]
+      properties:
+        entriesRecent: { type: integer }
+        exitsRecent: { type: integer }
+        timestamp: { type: string }
+        source: { type: string }
+    StopDetails:
+      type: object
+      required: [stop, routes, upcomingBuses]
+      properties:
+        stop: { $ref: "#/components/schemas/Stop" }
+        routes:
+          type: array
+          items: { type: string }
+        upcomingBuses:
+          type: array
+          items: { $ref: "#/components/schemas/BusSummary" }
+    OperatorOverview:
+      type: object
+      required: [activeBuses, liveTrackedBuses, highOccupancyBuses, mediumOccupancyBuses, lowOccupancyBuses, forecastAlerts, securityAlerts, dataQualityIssues, updatedAt, fleet]
+      properties:
+        activeBuses: { type: integer }
+        liveTrackedBuses: { type: integer }
+        highOccupancyBuses: { type: integer }
+        mediumOccupancyBuses: { type: integer }
+        lowOccupancyBuses: { type: integer }
+        forecastAlerts: { type: integer }
+        securityAlerts: { type: integer }
+        dataQualityIssues: { type: integer }
+        updatedAt: { type: string }
+        fleet:
+          type: array
+          items: { $ref: "#/components/schemas/BusSummary" }
+    OperatorBus:
+      allOf:
+        - $ref: "#/components/schemas/BusDetails"
+        - type: object
+          required: [reconciledOccupancy, reconciliationStatus, etmTimeline, occupancyTimeline]
+          properties:
+            reconciledOccupancy: { type: integer }
+            reconciliationStatus: { type: string }
+            etmTimeline:
+              type: array
+              items: { $ref: "#/components/schemas/EtmEvent" }
+            occupancyTimeline:
+              type: array
+              items: { $ref: "#/components/schemas/OccupancyPoint" }
+    EtmEvent:
+      type: object
+      required: [time, quantity, destinationStage, status]
+      properties:
+        time: { type: string }
+        quantity: { type: integer }
+        destinationStage: { type: string }
+        status: { type: string }
+    OccupancyPoint:
+      type: object
+      required: [time, camera, reconciled]
+      properties:
+        time: { type: string }
+        camera: { type: integer }
+        reconciled: { type: ["integer", "null"] }
+    SecurityEvent:
+      type: object
+      required: [id, busNumber, location, time, eventType, confidence, status, source]
+      properties:
+        id: { type: string }
+        busNumber: { type: string }
+        location: { type: string }
+        time: { type: string }
+        eventType: { type: string }
+        confidence: { type: integer }
+        status: { type: string, enum: [Under review, Acknowledged, Escalated, Dismissed] }
+        source: { type: string }
 
