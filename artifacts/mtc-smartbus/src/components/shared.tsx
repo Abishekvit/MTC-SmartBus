@@ -139,14 +139,7 @@ export function BusCard({ bus, compact = false }: { bus: any; compact?: boolean 
   </Link>;
 }
 
-export function MiniMap({ points = [], busPoint = true }: { points?: Array<{ name?: string; latitude?: number; longitude?: number }>; busPoint?: boolean }) {
-  return <div className="route-grid relative min-h-[235px] overflow-hidden rounded-2xl border border-border bg-[#e6e9df]" data-testid="map-treatment">
-    <div className="absolute inset-x-[12%] top-[27%] h-[3px] rotate-[9deg] bg-primary/75" /><div className="absolute inset-x-[12%] top-[58%] h-[3px] rotate-[-11deg] bg-primary/75" /><div className="absolute left-[22%] top-[13%] h-[170px] w-[3px] rotate-[26deg] bg-primary/45" />
-    {points.slice(0, 5).map((point, i) => <div key={`${point.name}-${i}`} className="absolute" style={{ left: `${17 + i * 16}%`, top: `${38 + (i % 2) * 18}%` }}><span className="block h-3 w-3 rounded-full border-2 border-card bg-accent shadow-sm" /><span className="absolute left-4 top-0 whitespace-nowrap font-data text-[9px] text-primary/65">{point.name}</span></div>)}
-    {busPoint && <div className="absolute left-[49%] top-[44%] grid h-10 w-10 place-items-center rounded-full border-4 border-card bg-accent text-primary shadow-lg"><BusFront size={17} /></div>}
-    <div className="absolute bottom-3 left-3 rounded-lg border border-border bg-card/90 px-2.5 py-2 font-data text-[9px] uppercase tracking-[.1em] text-muted-foreground"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />Chennai demo map</div>
-  </div>;
-}
+export { MiniMap } from './live-map';
 
 export function RouteTimeline({ stops, active = 0 }: { stops: any[]; active?: number }) {
   return <div className="relative space-y-0">{stops.map((stop, i) => <div key={stop.id ?? i} className="relative flex gap-4 pb-5 last:pb-0"><div className="relative flex w-5 shrink-0 justify-center"><div className={cx('z-10 mt-1.5 h-3.5 w-3.5 rounded-full border-[3px] border-card', i < active ? 'bg-emerald-500' : i === active ? 'bg-accent ring-4 ring-accent/25' : 'bg-muted-foreground/35')} />{i < stops.length - 1 && <div className={cx('absolute top-5 h-full w-px', i < active ? 'bg-emerald-500' : 'bg-border')} />}</div><div className="min-w-0 flex-1"><div className={cx('text-sm font-semibold', i === active ? 'text-primary' : 'text-muted-foreground')}>{stop.name}</div><div className="mt-1 flex items-center gap-2 font-data text-[10px] text-muted-foreground">{i === active ? <><Timer size={12} />Your selected stop</> : <>{String(i + 1).padStart(2, '0')} · physical stop</>}</div></div></div>)}</div>;

@@ -48,6 +48,13 @@ type BusSummary = {
   crowding: Crowding;
   status: BusStatus;
   lastUpdatedSeconds: number;
+  gps?: {
+    latitude: number;
+    longitude: number;
+    speed: number;
+    heading: number;
+    timestamp?: string;
+  };
 };
 
 type BusState = {
@@ -589,11 +596,35 @@ function stopForecast(bus: (typeof buses)[number], targetStopId?: string) {
   return Math.max(4, busState.occupancy - expectedAlighting + Math.round(Math.sin(busState.tick / 2)));
 }
 
+function calculateBusGps(route: Route, busState: BusState) {
+  const currentIndex = busState.stopIndex;
+  const currentStop = route.stops[currentIndex] ?? route.stops[0];
+  const nextIndex = (currentIndex + 1) % route.stops.length;
+  const nextStop = route.stops[nextIndex] ?? currentStop;
+  const fraction = (busState.tick % 3) / 3;
+  const latitude = Number((currentStop.latitude + (nextStop.latitude - currentStop.latitude) * fraction).toFixed(6));
+  const longitude = Number((currentStop.longitude + (nextStop.longitude - currentStop.longitude) * fraction).toFixed(6));
+  const dLng = ((nextStop.longitude - currentStop.longitude) * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos((nextStop.latitude * Math.PI) / 180);
+  const x =
+    Math.cos((currentStop.latitude * Math.PI) / 180) * Math.sin((nextStop.latitude * Math.PI) / 180) -
+    Math.sin((currentStop.latitude * Math.PI) / 180) * Math.cos((nextStop.latitude * Math.PI) / 180) * Math.cos(dLng);
+  const heading = Math.round(((Math.atan2(y, x) * 180) / Math.PI + 360) % 360);
+  return {
+    latitude,
+    longitude,
+    speed: 22 + (busState.tick % 8),
+    heading: isNaN(heading) ? 90 : heading,
+    timestamp: busState.updatedAt,
+  };
+}
+
 function busSummary(bus: (typeof buses)[number]): BusSummary {
   const route = routeFor(bus.routeId);
   const busState = getBusState(bus.id);
   const stop = route.stops[busState.stopIndex] ?? route.stops[0];
   const predicted = stopForecast(bus);
+  const gps = calculateBusGps(route, busState);
   return {
     id: bus.id,
     number: bus.number,
@@ -610,6 +641,7 @@ function busSummary(bus: (typeof buses)[number]): BusSummary {
     crowding: crowdingFor(busState.occupancy, bus.capacity),
     status: "LIVE",
     lastUpdatedSeconds: Math.max(3, Math.floor((Date.now() - new Date(busState.updatedAt).getTime()) / 1000)),
+    gps,
   };
 }
 
@@ -621,6 +653,7 @@ function busDetails(bus: (typeof buses)[number], targetStopId?: string) {
   const targetIndex = route.stops.findIndex((stop) => stop.id === target.id);
   const currentIndex = busState.stopIndex;
   const predictedAtTarget = stopForecast(bus, target.id);
+  const gps = calculateBusGps(route, busState);
   return {
     ...summary,
     predictedOccupancy: predictedAtTarget,
@@ -630,13 +663,7 @@ function busDetails(bus: (typeof buses)[number], targetStopId?: string) {
       etaMinutes: index * 3 + 2,
       predictedOccupancy: Math.max(4, busState.occupancy - Math.max(0, stop.sequence - route.stops[currentIndex].sequence) + Math.round(Math.sin((busState.tick + index) / 2))),
     })),
-    gps: {
-      latitude: route.stops[currentIndex].latitude,
-      longitude: route.stops[currentIndex].longitude,
-      speed: 22 + (busState.tick % 8),
-      heading: currentIndex < route.stops.length - 1 ? 125 : 300,
-      timestamp: busState.updatedAt,
-    },
+    gps,
     flow: {
       entriesRecent: busState.entries,
       exitsRecent: busState.exits,
