@@ -133,6 +133,8 @@ export interface EtmEvent {
   passengerCount: number;
   destinationStage: string;
   status: string;
+  /** Privacy-safe feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK". */
+  source: string;
 }
 
 export interface OccupancyPoint {
@@ -140,6 +142,8 @@ export interface OccupancyPoint {
   camera: number;
   /** @nullable */
   reconciled: number | null;
+  /** Privacy-safe camera feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK". */
+  source: string;
 }
 
 export type OperatorBus = BusDetails & {
@@ -245,6 +249,7 @@ export interface SecurityEvent {
   confidence: number;
   status: SecurityEventStatus;
   statusDetail: string;
+  /** Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with "DEMO FALLBACK". */
   source: string;
   personTrackId: string;
   objectId: string;

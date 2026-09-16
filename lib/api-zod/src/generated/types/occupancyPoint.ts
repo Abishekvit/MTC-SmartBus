@@ -11,4 +11,6 @@ export interface OccupancyPoint {
   camera: number;
   /** @nullable */
   reconciled: number | null;
+  /** Privacy-safe camera feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK". */
+  source: string;
 }

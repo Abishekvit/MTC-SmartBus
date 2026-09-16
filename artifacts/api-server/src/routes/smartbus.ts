@@ -73,6 +73,24 @@ type SecurityReviewAudit = {
   note?: string;
   timestamp: string;
 };
+type EtmEvent = {
+  time: string;
+  timestamp: string;
+  busNumber: string;
+  quantity: number;
+  boardingStop: string;
+  currentStop: string;
+  passengerCount: number;
+  destinationStage: string;
+  status: string;
+  source: string;
+};
+type OccupancyPoint = {
+  time: string;
+  camera: number;
+  reconciled: number | null;
+  source: string;
+};
 type SecurityEventRecord = {
   id: string;
   busNumber: string;
@@ -102,6 +120,201 @@ type SecurityEventRecord = {
   };
   reviewHistory: SecurityReviewAudit[];
 };
+
+type FeedMode = "provider" | "demo";
+type FeedConfig = {
+  mode: FeedMode;
+  name: "camera" | "etm";
+  url?: string;
+  token?: string;
+  label: string;
+};
+type JsonRecord = Record<string, unknown>;
+
+class ProviderFeedError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode = 502,
+  ) {
+    super(message);
+    this.name = "ProviderFeedError";
+  }
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function numberValue(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function arrayFromPayload(payload: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!isRecord(payload)) throw new ProviderFeedError("MTC provider returned an invalid JSON payload");
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) return payload[key];
+  }
+  throw new ProviderFeedError(`MTC provider payload is missing ${keys[0]}`);
+}
+
+function feedConfig(name: FeedConfig["name"]): FeedConfig {
+  const mode = process.env.SMARTBUS_FEED_MODE === "provider" ? "provider" : "demo";
+  const prefix = name === "camera" ? "MTC_CAMERA_FEED" : "MTC_ETM_FEED";
+  const url = process.env[`${prefix}_URL`]?.trim();
+  const token = (process.env[`${prefix}_TOKEN`] || process.env.MTC_PROVIDER_TOKEN)?.trim();
+  const hasCredentials = Boolean(url && token);
+
+  return {
+    name,
+    mode: hasCredentials ? "provider" : mode === "provider" ? "provider" : "demo",
+    ...(url ? { url } : {}),
+    ...(token ? { token } : {}),
+    label: name === "camera" ? "MTC authorized camera feed" : "MTC authorized ETM feed",
+  };
+}
+
+function feedSource(config: FeedConfig, detail: string) {
+  return config.mode === "provider" ? `${config.label} · ${detail}` : `DEMO FALLBACK · simulated ${detail}`;
+}
+
+function providerConfigError(config: FeedConfig) {
+  if (config.url && !config.token) {
+    return "MTC provider URL is configured without an access token";
+  }
+  return `MTC ${config.name} provider credentials are not configured`;
+}
+
+async function fetchProviderJson(config: FeedConfig, query: Record<string, string> = {}) {
+  if (config.mode !== "provider" || !config.url || !config.token) {
+    throw new ProviderFeedError(providerConfigError(config), 503);
+  }
+
+  const endpoint = new URL(config.url);
+  for (const [key, value] of Object.entries(query)) endpoint.searchParams.set(key, value);
+
+  let response: globalThis.Response;
+  try {
+    response = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${config.token}`,
+      },
+      signal: AbortSignal.timeout(Math.min(Math.max(Number(process.env.SMARTBUS_FEED_TIMEOUT_MS) || 8000, 1000), 30000)),
+    });
+  } catch (error) {
+    throw new ProviderFeedError(`${config.label} request failed: ${error instanceof Error ? error.message : "network error"}`);
+  }
+
+  if (!response.ok) {
+    throw new ProviderFeedError(`${config.label} returned HTTP ${response.status}`);
+  }
+
+  try {
+    return await response.json() as unknown;
+  } catch {
+    throw new ProviderFeedError(`${config.label} returned invalid JSON`);
+  }
+}
+
+function normalizeSecurityEvent(input: unknown, index: number, config: FeedConfig): SecurityEventRecord {
+  if (!isRecord(input)) throw new ProviderFeedError("MTC camera payload contains an invalid event");
+  const context = isRecord(input.etmContext) ? input.etmContext : {};
+  const timeline = Array.isArray(input.timeline)
+    ? input.timeline.filter(isRecord).map((step) => ({
+      time: stringValue(step.time, "Unavailable"),
+      label: stringValue(step.label, "Observed activity"),
+      detail: stringValue(step.detail, "Provider supplied event activity"),
+      state: (step.state === "complete" || step.state === "active" || step.state === "pending" ? step.state : "complete") as SecurityEventStepState,
+    }))
+    : [];
+  const confidence = numberValue(input.confidence, 0);
+  const eventId = stringValue(input.id ?? input.eventId, `provider-security-event-${index + 1}`);
+  const busNumber = stringValue(input.busNumber ?? input.busNo);
+  if (!busNumber || confidence < 0 || confidence > 100) {
+    throw new ProviderFeedError("MTC camera payload contains an invalid event identity or confidence");
+  }
+
+  return {
+    id: eventId,
+    busNumber,
+    location: stringValue(input.location ?? input.locationName, "Unavailable"),
+    physicalStop: stringValue(input.physicalStop ?? input.stopName, "Unavailable"),
+    latitude: numberValue(input.latitude ?? input.lat),
+    longitude: numberValue(input.longitude ?? input.lng ?? input.lon),
+    time: stringValue(input.time, "Unavailable"),
+    timestamp: stringValue(input.timestamp, new Date().toISOString()),
+    eventType: stringValue(input.eventType ?? input.type, "Provider security event"),
+    confidence: Math.round(confidence),
+    status: (input.status === "Acknowledged" || input.status === "Escalated" || input.status === "Dismissed" ? input.status : "Under review") as SecurityEventStatus,
+    statusDetail: stringValue(input.statusDetail, "AI-generated potential security event; operator review required"),
+    source: feedSource(config, stringValue(input.source, "camera event")),
+    personTrackId: stringValue(input.personTrackId ?? input.trackId, `track-${index + 1}`),
+    objectId: stringValue(input.objectId, `object-${index + 1}`),
+    objectType: stringValue(input.objectType, "object"),
+    interactionType: stringValue(input.interactionType, "Provider supplied interaction"),
+    timeline,
+    etmContext: {
+      transactionId: stringValue(context.transactionId ?? input.transactionId, "Unavailable"),
+      timestamp: stringValue(context.timestamp ?? input.timestamp, new Date().toISOString()),
+      boardingStop: stringValue(context.boardingStop ?? input.boardingStop, "Unavailable"),
+      currentStop: stringValue(context.currentStop ?? input.currentStop, "Unavailable"),
+      passengerCount: Math.max(0, Math.round(numberValue(context.passengerCount ?? input.passengerCount))),
+      destinationStop: stringValue(context.destinationStop ?? context.destinationStage ?? input.destinationStop, "Unavailable"),
+    },
+    reviewHistory: [],
+  };
+}
+
+function normalizeEtmEvent(input: unknown, index: number, config: FeedConfig): EtmEvent {
+  if (!isRecord(input)) throw new ProviderFeedError("MTC ETM payload contains an invalid event");
+  const busNumber = stringValue(input.busNumber ?? input.busNo);
+  if (!busNumber) throw new ProviderFeedError("MTC ETM payload contains an event without a bus number");
+  return {
+    time: stringValue(input.time, "Unavailable"),
+    timestamp: stringValue(input.timestamp, new Date().toISOString()),
+    busNumber,
+    quantity: Math.max(0, Math.round(numberValue(input.quantity))),
+    boardingStop: stringValue(input.boardingStop, "Unavailable"),
+    currentStop: stringValue(input.currentStop, "Unavailable"),
+    passengerCount: Math.max(0, Math.round(numberValue(input.passengerCount))),
+    destinationStage: stringValue(input.destinationStage ?? input.destinationStop, "Unavailable"),
+    status: stringValue(input.status, "Processed"),
+    source: feedSource(config, stringValue(input.source, `ETM event ${index + 1}`)),
+  };
+}
+
+const cameraFeed = feedConfig("camera");
+const etmFeed = feedConfig("etm");
+
+async function providerSecurityEvents() {
+  const payload = await fetchProviderJson(cameraFeed);
+  return arrayFromPayload(payload, ["events", "securityEvents"])
+    .map((event, index) => normalizeSecurityEvent(event, index, cameraFeed));
+}
+
+async function providerOccupancyTimeline(busNumber: string): Promise<OccupancyPoint[]> {
+  const payload = await fetchProviderJson(cameraFeed, { busNumber });
+  if (!isRecord(payload) || !Array.isArray(payload.occupancyTimeline ?? payload.occupancy)) return [];
+  const points = (payload.occupancyTimeline ?? payload.occupancy) as unknown[];
+  return points.filter(isRecord).map((point) => ({
+    time: stringValue(point.time, "Unavailable"),
+    camera: Math.max(0, Math.round(numberValue(point.camera ?? point.occupancy))),
+    reconciled: typeof point.reconciled === "number" ? Math.round(point.reconciled) : null,
+    source: feedSource(cameraFeed, "occupancy timeline"),
+  }));
+}
+
+async function providerEtmEvents(busNumber: string) {
+  const payload = await fetchProviderJson(etmFeed, { busNumber });
+  return arrayFromPayload(payload, ["events", "etmEvents"])
+    .map((event, index) => normalizeEtmEvent(event, index, etmFeed))
+    .filter((event) => event.busNumber === busNumber);
+}
 
 const routeStops: Stop[] = [
   { id: "island-ground", name: "Island Ground", sequence: 1, latitude: 13.0758, longitude: 80.2862, routes: ["102"] },
@@ -194,9 +407,9 @@ const securityEvents: SecurityEventRecord[] = [
     eventType: "Potential theft pattern",
     confidence: 87,
     status: "Under review",
-    statusDetail: "AI-generated potential security event; operator review required",
+    statusDetail: "DEMO FALLBACK · AI-generated potential security event; operator review required",
     reviewHistory: [],
-    source: "CCTV camera 02 · edge model",
+    source: "DEMO FALLBACK · simulated CCTV camera 02 · edge model",
     personTrackId: "P03",
     objectId: "O02",
     objectType: "bag",
@@ -228,9 +441,9 @@ const securityEvents: SecurityEventRecord[] = [
     eventType: "Object displacement",
     confidence: 72,
     status: "Acknowledged",
-    statusDetail: "Reviewed as a simulated bag movement; no confirmed theft",
+    statusDetail: "DEMO FALLBACK · reviewed as a simulated bag movement; no confirmed theft",
     reviewHistory: [],
-    source: "CCTV camera 01 · edge model",
+    source: "DEMO FALLBACK · simulated CCTV camera 01 · edge model",
     personTrackId: "P07",
     objectId: "O04",
     objectType: "phone",
@@ -255,6 +468,29 @@ const securityEvents: SecurityEventRecord[] = [
 const operatorRouter: IRouter = Router();
 const publicRouter: IRouter = Router();
 let securityEventCacheVersion = 1;
+
+async function refreshSecurityEventsFromProvider() {
+  if (cameraFeed.mode !== "provider") return;
+  const incoming = await providerSecurityEvents();
+  const currentById = new Map(securityEvents.map((event) => [event.id, event]));
+  securityEvents.splice(
+    0,
+    securityEvents.length,
+    ...incoming.map((event) => {
+      const current = currentById.get(event.id);
+      return current
+        ? { ...event, status: current.status, statusDetail: current.statusDetail, reviewHistory: current.reviewHistory }
+        : event;
+    }),
+  );
+  invalidateSecurityEventCache();
+}
+
+function providerError(res: Response, error: unknown) {
+  const statusCode = error instanceof ProviderFeedError ? error.statusCode : 502;
+  const message = error instanceof Error ? error.message : "MTC provider feed unavailable";
+  res.status(statusCode).json({ error: message });
+}
 
 const statusForReviewAction: Record<SecurityReviewAction, SecurityEventStatus> = {
   acknowledge: "Acknowledged",
@@ -366,7 +602,7 @@ function busDetails(bus: (typeof buses)[number], targetStopId?: string) {
       entriesRecent: busState.entries,
       exitsRecent: busState.exits,
       timestamp: busState.updatedAt,
-      source: "Onboard CCTV edge model",
+      source: "DEMO FALLBACK · simulated onboard CCTV edge model",
     },
     forecastConfidence: targetIndex - currentIndex > 5 ? "Moderate" : "Good",
     forecastUpdatedAt: busState.updatedAt,
@@ -443,68 +679,102 @@ publicRouter.get("/stop", (req, res) => {
   });
 });
 
-operatorRouter.get("/overview", (_req, res) => {
-  const fleet = buses.map(busSummary);
-  return res.json({
-    activeBuses: fleet.length,
-    liveTrackedBuses: fleet.filter((bus) => bus.status === "LIVE").length,
-    highOccupancyBuses: fleet.filter((bus) => bus.crowding === "High" || bus.crowding === "Very high").length,
-    mediumOccupancyBuses: fleet.filter((bus) => bus.crowding === "Moderate").length,
-    lowOccupancyBuses: fleet.filter((bus) => bus.crowding === "Low").length,
-    forecastAlerts: 3,
-    securityAlerts: securityEvents.filter((event) => event.status === "Under review").length,
-    dataQualityIssues: 2,
-    updatedAt: new Date().toISOString(),
-    fleet,
-  });
+operatorRouter.get("/overview", async (_req, res) => {
+  try {
+    await refreshSecurityEventsFromProvider();
+    const fleet = buses.map(busSummary);
+    return res.json({
+      activeBuses: fleet.length,
+      liveTrackedBuses: fleet.filter((bus) => bus.status === "LIVE").length,
+      highOccupancyBuses: fleet.filter((bus) => bus.crowding === "High" || bus.crowding === "Very high").length,
+      mediumOccupancyBuses: fleet.filter((bus) => bus.crowding === "Moderate").length,
+      lowOccupancyBuses: fleet.filter((bus) => bus.crowding === "Low").length,
+      forecastAlerts: 3,
+      securityAlerts: securityEvents.filter((event) => event.status === "Under review").length,
+      dataQualityIssues: 2,
+      updatedAt: new Date().toISOString(),
+      fleet,
+    });
+  } catch (error) {
+    return providerError(res, error);
+  }
 });
 
-operatorRouter.get("/bus", (req, res) => {
+operatorRouter.get("/bus", async (req, res) => {
   const query = parseQuery(GetOperatorBusQueryParams, req.query);
   const bus = buses.find((item) => item.id === query?.busId);
   if (!bus) return res.status(404).json({ error: "Operator bus information unavailable" });
-  const details = busDetails(bus);
-  const busState = getBusState(bus.id);
-  return res.json({
-    ...details,
-    reconciledOccupancy: Math.max(4, details.currentOccupancy + 2),
-    reconciliationStatus: "Reconciled 2 min ago",
-    etmTimeline: [
-      { time: "10:02", timestamp: "2026-09-16T10:02:00+05:30", busNumber: bus.number, quantity: 3, boardingStop: "Island Ground", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 3), destinationStage: "Adyar O.T.", status: "Processed" },
-      { time: "10:04", timestamp: "2026-09-16T10:04:00+05:30", busNumber: bus.number, quantity: 2, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 1), destinationStage: "SRP Tools", status: "Processed" },
-      { time: "10:07", timestamp: "2026-09-16T10:07:00+05:30", busNumber: bus.number, quantity: 5, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: busState.occupancy, destinationStage: "Sholinganallur", status: "Pending / received" },
-    ],
-    occupancyTimeline: [
-      { time: "10:14", camera: Math.max(4, busState.occupancy - 4), reconciled: null },
-      { time: "10:18", camera: Math.max(4, busState.occupancy - 2), reconciled: null },
-      { time: "10:22", camera: busState.occupancy, reconciled: Math.max(4, busState.occupancy + 2) },
-      { time: "10:26", camera: busState.occupancy, reconciled: null },
-    ],
-  });
+
+  try {
+    const details = busDetails(bus);
+    const busState = getBusState(bus.id);
+    const etmTimeline: EtmEvent[] = etmFeed.mode === "provider"
+      ? await providerEtmEvents(bus.number)
+      : [
+        { time: "10:02", timestamp: "2026-09-16T10:02:00+05:30", busNumber: bus.number, quantity: 3, boardingStop: "Island Ground", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 3), destinationStage: "Adyar O.T.", status: "Processed", source: feedSource(etmFeed, "ETM timeline") },
+        { time: "10:04", timestamp: "2026-09-16T10:04:00+05:30", busNumber: bus.number, quantity: 2, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 1), destinationStage: "SRP Tools", status: "Processed", source: feedSource(etmFeed, "ETM timeline") },
+        { time: "10:07", timestamp: "2026-09-16T10:07:00+05:30", busNumber: bus.number, quantity: 5, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: busState.occupancy, destinationStage: "Sholinganallur", status: "Pending / received", source: feedSource(etmFeed, "ETM timeline") },
+      ];
+    const occupancyTimeline: OccupancyPoint[] = cameraFeed.mode === "provider"
+      ? await providerOccupancyTimeline(bus.number)
+      : [
+        { time: "10:14", camera: Math.max(4, busState.occupancy - 4), reconciled: null, source: feedSource(cameraFeed, "occupancy timeline") },
+        { time: "10:18", camera: Math.max(4, busState.occupancy - 2), reconciled: null, source: feedSource(cameraFeed, "occupancy timeline") },
+        { time: "10:22", camera: busState.occupancy, reconciled: Math.max(4, busState.occupancy + 2), source: feedSource(cameraFeed, "occupancy timeline") },
+        { time: "10:26", camera: busState.occupancy, reconciled: null, source: feedSource(cameraFeed, "occupancy timeline") },
+      ];
+    const latestEtmCount = etmTimeline.at(-1)?.passengerCount;
+    return res.json({
+      ...details,
+      reconciledOccupancy: etmFeed.mode === "provider" && latestEtmCount !== undefined ? latestEtmCount : Math.max(4, details.currentOccupancy + 2),
+      reconciliationStatus: etmFeed.mode === "provider" ? "MTC authorized ETM feed" : "DEMO FALLBACK · simulated reconciliation",
+      etmTimeline,
+      occupancyTimeline,
+    });
+  } catch (error) {
+    return providerError(res, error);
+  }
 });
 
-operatorRouter.get("/security-events", (_req, res) => {
-  res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
-  res.json(securityEvents);
+operatorRouter.get("/security-events", async (_req, res) => {
+  try {
+    await refreshSecurityEventsFromProvider();
+    res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
+    return res.json(securityEvents);
+  } catch (error) {
+    return providerError(res, error);
+  }
 });
 
-operatorRouter.get("/security-investigation", (req, res) => {
-  const query = parseQuery(GetSecurityInvestigationQueryParams, req.query);
-  const busNumber = query?.busNumber?.trim().toLowerCase();
-  const stop = query?.stop?.trim().toLowerCase();
-  const eventType = query?.eventType?.trim().toLowerCase();
-  const minConfidence = query?.minConfidence ?? 0;
-  const result = securityEvents.filter((event) =>
-    (!busNumber || event.busNumber.toLowerCase().includes(busNumber)) &&
-    (!stop || event.physicalStop.toLowerCase().includes(stop)) &&
-    (!eventType || event.eventType.toLowerCase().includes(eventType)) &&
-    event.confidence >= minConfidence,
-  );
-  res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
-  res.json(result);
+operatorRouter.get("/security-investigation", async (req, res) => {
+  try {
+    await refreshSecurityEventsFromProvider();
+    const query = parseQuery(GetSecurityInvestigationQueryParams, req.query);
+    const busNumber = query?.busNumber?.trim().toLowerCase();
+    const stop = query?.stop?.trim().toLowerCase();
+    const eventType = query?.eventType?.trim().toLowerCase();
+    const minConfidence = query?.minConfidence ?? 0;
+    const result = securityEvents.filter((event) =>
+      (!busNumber || event.busNumber.toLowerCase().includes(busNumber)) &&
+      (!stop || event.physicalStop.toLowerCase().includes(stop)) &&
+      (!eventType || event.eventType.toLowerCase().includes(eventType)) &&
+      event.confidence >= minConfidence,
+    );
+    res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
+    return res.json(result);
+  } catch (error) {
+    return providerError(res, error);
+  }
 });
 
-operatorRouter.post("/security-events/review", requireOperator, (req, res) => {
+operatorRouter.post("/security-events/review", requireOperator, async (req, res) => {
+  try {
+    await refreshSecurityEventsFromProvider();
+  } catch (error) {
+    providerError(res, error);
+    return;
+  }
+
   const eventId = typeof req.body?.eventId === "string" ? req.body.eventId.trim() : "";
   const action = typeof req.body?.action === "string" ? req.body.action.trim() as SecurityReviewAction : undefined;
   const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 500) : undefined;

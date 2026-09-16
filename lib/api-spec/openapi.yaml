@@ -412,7 +412,7 @@ components:
               items: { $ref: "#/components/schemas/OccupancyPoint" }
     EtmEvent:
       type: object
-      required: [time, timestamp, busNumber, quantity, boardingStop, currentStop, passengerCount, destinationStage, status]
+      required: [time, timestamp, busNumber, quantity, boardingStop, currentStop, passengerCount, destinationStage, status, source]
       properties:
         time: { type: string }
         timestamp: { type: string }
@@ -423,13 +423,19 @@ components:
         passengerCount: { type: integer }
         destinationStage: { type: string }
         status: { type: string }
+        source:
+          type: string
+          description: Privacy-safe feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK".
     OccupancyPoint:
       type: object
-      required: [time, camera, reconciled]
+      required: [time, camera, reconciled, source]
       properties:
         time: { type: string }
         camera: { type: integer }
         reconciled: { type: ["integer", "null"] }
+        source:
+          type: string
+          description: Privacy-safe camera feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK".
     SecurityEvent:
       type: object
       required: [id, busNumber, location, physicalStop, latitude, longitude, time, timestamp, eventType, confidence, status, statusDetail, source, personTrackId, objectId, objectType, interactionType, timeline, etmContext, reviewHistory]
@@ -446,7 +452,9 @@ components:
         confidence: { type: integer }
         status: { type: string, enum: [Under review, Acknowledged, Escalated, Dismissed] }
         statusDetail: { type: string }
-        source: { type: string }
+        source:
+          type: string
+          description: Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with "DEMO FALLBACK".
         personTrackId: { type: string }
         objectId: { type: string }
         objectType: { type: string }

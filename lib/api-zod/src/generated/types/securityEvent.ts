@@ -23,6 +23,7 @@ export interface SecurityEvent {
   confidence: number;
   status: SecurityEventStatus;
   statusDetail: string;
+  /** Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with "DEMO FALLBACK". */
   source: string;
   personTrackId: string;
   objectId: string;

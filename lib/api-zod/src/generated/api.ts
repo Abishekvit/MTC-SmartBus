@@ -332,12 +332,14 @@ export const GetOperatorBusResponse = zod.object({
   "currentStop": zod.string(),
   "passengerCount": zod.number().int(),
   "destinationStage": zod.string(),
-  "status": zod.string()
+  "status": zod.string(),
+  "source": zod.string().describe('Privacy-safe feed provenance. Demo values are explicitly prefixed with \"DEMO FALLBACK\".')
 })),
   "occupancyTimeline": zod.array(zod.object({
   "time": zod.string(),
   "camera": zod.number().int(),
-  "reconciled": zod.number().int().nullable()
+  "reconciled": zod.number().int().nullable(),
+  "source": zod.string().describe('Privacy-safe camera feed provenance. Demo values are explicitly prefixed with \"DEMO FALLBACK\".')
 }))
 }))
 
@@ -358,7 +360,7 @@ export const GetSecurityEventsResponseItem = zod.object({
   "confidence": zod.number().int(),
   "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
   "statusDetail": zod.string(),
-  "source": zod.string(),
+  "source": zod.string().describe('Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with \"DEMO FALLBACK\".'),
   "personTrackId": zod.string(),
   "objectId": zod.string(),
   "objectType": zod.string(),
@@ -419,7 +421,7 @@ export const ReviewSecurityEventResponse = zod.object({
   "confidence": zod.number().int(),
   "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
   "statusDetail": zod.string(),
-  "source": zod.string(),
+  "source": zod.string().describe('Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with \"DEMO FALLBACK\".'),
   "personTrackId": zod.string(),
   "objectId": zod.string(),
   "objectType": zod.string(),
@@ -517,7 +519,7 @@ export const GetSecurityInvestigationResponseItem = zod.object({
   "confidence": zod.number().int(),
   "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
   "statusDetail": zod.string(),
-  "source": zod.string(),
+  "source": zod.string().describe('Privacy-safe feed provenance. Authorized MTC values identify the provider; demo values are explicitly prefixed with \"DEMO FALLBACK\".'),
   "personTrackId": zod.string(),
   "objectId": zod.string(),
   "objectType": zod.string(),

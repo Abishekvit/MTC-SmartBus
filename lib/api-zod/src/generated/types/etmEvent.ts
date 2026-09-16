@@ -16,4 +16,6 @@ export interface EtmEvent {
   passengerCount: number;
   destinationStage: string;
   status: string;
+  /** Privacy-safe feed provenance. Demo values are explicitly prefixed with "DEMO FALLBACK". */
+  source: string;
 }
