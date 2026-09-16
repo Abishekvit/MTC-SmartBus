@@ -125,7 +125,12 @@ export interface OperatorOverview {
 
 export interface EtmEvent {
   time: string;
+  timestamp: string;
+  busNumber: string;
   quantity: number;
+  boardingStop: string;
+  currentStop: string;
+  passengerCount: number;
   destinationStage: string;
   status: string;
 }
@@ -154,15 +159,51 @@ export const SecurityEventStatus = {
   Dismissed: 'Dismissed',
 } as const;
 
+export type SecurityEventStepState = typeof SecurityEventStepState[keyof typeof SecurityEventStepState];
+
+
+export const SecurityEventStepState = {
+  complete: 'complete',
+  active: 'active',
+  pending: 'pending',
+} as const;
+
+export interface SecurityEventStep {
+  time: string;
+  label: string;
+  detail: string;
+  state: SecurityEventStepState;
+}
+
+export interface EtmContext {
+  transactionId: string;
+  timestamp: string;
+  boardingStop: string;
+  currentStop: string;
+  passengerCount: number;
+  destinationStop: string;
+}
+
 export interface SecurityEvent {
   id: string;
   busNumber: string;
   location: string;
+  physicalStop: string;
+  latitude: number;
+  longitude: number;
   time: string;
+  timestamp: string;
   eventType: string;
   confidence: number;
   status: SecurityEventStatus;
+  statusDetail: string;
   source: string;
+  personTrackId: string;
+  objectId: string;
+  objectType: string;
+  interactionType: string;
+  timeline: SecurityEventStep[];
+  etmContext: EtmContext;
 }
 
 export type GetRouteParams = {
@@ -193,5 +234,16 @@ stopId: string;
 
 export type GetOperatorBusParams = {
 busId: string;
+};
+
+export type GetSecurityInvestigationParams = {
+busNumber?: string;
+stop?: string;
+eventType?: string;
+/**
+ * @minimum 0
+ * @maximum 100
+ */
+minConfidence?: number;
 };
 

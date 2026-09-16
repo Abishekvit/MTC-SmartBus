@@ -5,15 +5,28 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EtmContext } from './etmContext';
 import type { SecurityEventStatus } from './securityEventStatus';
+import type { SecurityEventStep } from './securityEventStep';
 
 export interface SecurityEvent {
   id: string;
   busNumber: string;
   location: string;
+  physicalStop: string;
+  latitude: number;
+  longitude: number;
   time: string;
+  timestamp: string;
   eventType: string;
   confidence: number;
   status: SecurityEventStatus;
+  statusDetail: string;
   source: string;
+  personTrackId: string;
+  objectId: string;
+  objectType: string;
+  interactionType: string;
+  timeline: SecurityEventStep[];
+  etmContext: EtmContext;
 }

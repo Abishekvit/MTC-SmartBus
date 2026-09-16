@@ -43,6 +43,7 @@ const navItems = [
 const operatorItems = [
   { href: '/operator', label: 'Fleet overview', icon: Gauge },
   { href: '/operator/security', label: 'Security events', icon: ShieldCheck },
+  { href: '/operator/security/investigation', label: 'Object tracking', icon: Signal },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

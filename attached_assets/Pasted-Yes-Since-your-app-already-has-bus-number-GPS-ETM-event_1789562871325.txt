@@ -1,0 +1,13 @@
+Yes. Since your app already has **bus number, GPS, ETM events, physical stops, occupancy and admin pages**, add theft detection as a separate security layer.
+
+### Prompt 1 — Add theft detection
+
+> Add a **Theft/Suspicious Activity Detection** feature to the existing MTC SmartBus app. Use the existing camera/AI architecture and keep it clearly labeled as **DEMO / AI-generated potential security event**, not a confirmed crime. Detect demo scenarios such as person approaching another passenger, hand-to-pocket, hand-to-bag, grabbing, rapid withdrawal, and object displacement. Show a security alert with bus number, timestamp, current physical stop/location, confidence score, event type, and short event status. Add this to the existing operator/admin dashboard without changing the current occupancy features.
+
+### Prompt 2 — Internal person ↔ object mapping admin page
+
+> Add a separate **Security Investigation / Object Tracking** admin page. For every detected event, show **Bus Number, Date/Time, Current Physical Stop, GPS location, Person Track ID, Associated Object ID/type (bag/phone/etc.), interaction type, detection confidence, and event status**. Visually map tracked persons and their associated objects with unique IDs and lines/relationships, e.g. **Person P03 → Bag O02**, across the video timeline. Show the sequence of approach → interaction → object movement → separation. Include filters for bus number, time, stop, event type and confidence. Keep all data clearly marked **DEMO / SIMULATED** and do not use facial recognition or identity information.
+
+### Prompt 3 — ETM integration
+
+> Treat the **ETM as the source of destination information**. When an ETM transaction occurs, store the bus number, timestamp, boarding/current stop context, passenger count and **destination stop/stage information provided by the ETM**. Link this transaction context to the bus's GPS/physical-stop timeline and occupancy data. Do not invent or modify fare rules. Use ETM destination information only for passenger-flow/occupancy correlation and security-event context. Clearly label simulated ETM data as DEMO until an authorized MTC interface is connected.

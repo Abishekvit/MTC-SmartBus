@@ -325,7 +325,12 @@ export const GetOperatorBusResponse = zod.object({
   "reconciliationStatus": zod.string(),
   "etmTimeline": zod.array(zod.object({
   "time": zod.string(),
+  "timestamp": zod.string(),
+  "busNumber": zod.string(),
   "quantity": zod.number().int(),
+  "boardingStop": zod.string(),
+  "currentStop": zod.string(),
+  "passengerCount": zod.number().int(),
   "destinationStage": zod.string(),
   "status": zod.string()
 })),
@@ -344,12 +349,86 @@ export const GetSecurityEventsResponseItem = zod.object({
   "id": zod.string(),
   "busNumber": zod.string(),
   "location": zod.string(),
+  "physicalStop": zod.string(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
   "time": zod.string(),
+  "timestamp": zod.string(),
   "eventType": zod.string(),
   "confidence": zod.number().int(),
   "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
-  "source": zod.string()
+  "statusDetail": zod.string(),
+  "source": zod.string(),
+  "personTrackId": zod.string(),
+  "objectId": zod.string(),
+  "objectType": zod.string(),
+  "interactionType": zod.string(),
+  "timeline": zod.array(zod.object({
+  "time": zod.string(),
+  "label": zod.string(),
+  "detail": zod.string(),
+  "state": zod.enum(['complete', 'active', 'pending'])
+})),
+  "etmContext": zod.object({
+  "transactionId": zod.string(),
+  "timestamp": zod.string(),
+  "boardingStop": zod.string(),
+  "currentStop": zod.string(),
+  "passengerCount": zod.number().int(),
+  "destinationStop": zod.string()
+})
 })
 export const GetSecurityEventsResponse = zod.array(GetSecurityEventsResponseItem)
+
+
+/**
+ * @summary List simulated security investigation events
+ */
+export const getSecurityInvestigationQueryMinConfidenceMin = 0;
+export const getSecurityInvestigationQueryMinConfidenceMax = 100;
+
+
+
+export const GetSecurityInvestigationQueryParams = zod.object({
+  "busNumber": zod.coerce.string().optional(),
+  "stop": zod.coerce.string().optional(),
+  "eventType": zod.coerce.string().optional(),
+  "minConfidence": zod.coerce.number().int().min(getSecurityInvestigationQueryMinConfidenceMin).max(getSecurityInvestigationQueryMinConfidenceMax).optional()
+})
+
+export const GetSecurityInvestigationResponseItem = zod.object({
+  "id": zod.string(),
+  "busNumber": zod.string(),
+  "location": zod.string(),
+  "physicalStop": zod.string(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "time": zod.string(),
+  "timestamp": zod.string(),
+  "eventType": zod.string(),
+  "confidence": zod.number().int(),
+  "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "statusDetail": zod.string(),
+  "source": zod.string(),
+  "personTrackId": zod.string(),
+  "objectId": zod.string(),
+  "objectType": zod.string(),
+  "interactionType": zod.string(),
+  "timeline": zod.array(zod.object({
+  "time": zod.string(),
+  "label": zod.string(),
+  "detail": zod.string(),
+  "state": zod.enum(['complete', 'active', 'pending'])
+})),
+  "etmContext": zod.object({
+  "transactionId": zod.string(),
+  "timestamp": zod.string(),
+  "boardingStop": zod.string(),
+  "currentStop": zod.string(),
+  "passengerCount": zod.number().int(),
+  "destinationStop": zod.string()
+})
+})
+export const GetSecurityInvestigationResponse = zod.array(GetSecurityInvestigationResponseItem)
 
 

@@ -4,6 +4,7 @@ import {
   GetOperatorBusQueryParams,
   GetRouteQueryParams,
   GetRouteStopsQueryParams,
+  GetSecurityInvestigationQueryParams,
   GetStopQueryParams,
   GetStopsQueryParams,
 } from "@workspace/api-zod";
@@ -140,21 +141,67 @@ const securityEvents = [
     id: "security-102-1",
     busNumber: "102",
     location: "Adyar",
+    physicalStop: "Adyar O.T.",
+    latitude: 13.0065,
+    longitude: 80.2561,
     time: "10:42 AM",
-    eventType: "Potential suspicious interaction",
+    timestamp: "2026-09-16T10:42:00+05:30",
+    eventType: "Potential theft pattern",
     confidence: 87,
     status: "Under review",
-    source: "CCTV camera 02",
+    statusDetail: "AI-generated potential security event; operator review required",
+    source: "CCTV camera 02 · edge model",
+    personTrackId: "P03",
+    objectId: "O02",
+    objectType: "bag",
+    interactionType: "Approach → hand-to-pocket → bag contact",
+    timeline: [
+      { time: "10:41:48", label: "Approach", detail: "Person P03 moves within interaction range of O02.", state: "complete" },
+      { time: "10:41:54", label: "Hand movement", detail: "Hand-to-pocket motion detected.", state: "complete" },
+      { time: "10:42:00", label: "Object contact", detail: "P03 appears to contact bag O02.", state: "active" },
+      { time: "10:42:06", label: "Separation", detail: "Awaiting operator confirmation of object displacement.", state: "pending" },
+    ],
+    etmContext: {
+      transactionId: "ETM-102-1042-03",
+      timestamp: "2026-09-16T10:42:00+05:30",
+      boardingStop: "Adyar O.T.",
+      currentStop: "Adyar O.T.",
+      passengerCount: 32,
+      destinationStop: "Sholinganallur",
+    },
   },
   {
     id: "security-21g-1",
     busNumber: "21G",
     location: "Guindy",
+    physicalStop: "Guindy",
+    latitude: 13.0067,
+    longitude: 80.2206,
     time: "10:36 AM",
-    eventType: "Hand-to-bag interaction",
+    timestamp: "2026-09-16T10:36:00+05:30",
+    eventType: "Object displacement",
     confidence: 72,
     status: "Acknowledged",
-    source: "CCTV camera 01",
+    statusDetail: "Reviewed as a simulated bag movement; no confirmed theft",
+    source: "CCTV camera 01 · edge model",
+    personTrackId: "P07",
+    objectId: "O04",
+    objectType: "phone",
+    interactionType: "Grabbing → rapid withdrawal → object movement",
+    timeline: [
+      { time: "10:35:42", label: "Approach", detail: "P07 enters the tracked interaction zone.", state: "complete" },
+      { time: "10:35:49", label: "Interaction", detail: "Short grabbing motion detected near O04.", state: "complete" },
+      { time: "10:35:53", label: "Object movement", detail: "O04 position changes by 0.6 metres.", state: "complete" },
+      { time: "10:36:00", label: "Separation", detail: "No identity or facial signal retained.", state: "active" },
+    ],
+    etmContext: {
+      transactionId: "ETM-21G-1036-02",
+      timestamp: "2026-09-16T10:36:00+05:30",
+      boardingStop: "Tambaram",
+      currentStop: "Guindy",
+      passengerCount: 41,
+      destinationStop: "Broadway",
+    },
   },
 ];
 
@@ -342,9 +389,9 @@ operatorRouter.get("/bus", (req, res) => {
     reconciledOccupancy: Math.max(4, details.currentOccupancy + 2),
     reconciliationStatus: "Reconciled 2 min ago",
     etmTimeline: [
-      { time: "10:02", quantity: 3, destinationStage: "Adyar O.T.", status: "Processed" },
-      { time: "10:04", quantity: 2, destinationStage: "SRP Tools", status: "Processed" },
-      { time: "10:07", quantity: 5, destinationStage: "Sholinganallur", status: "Pending / received" },
+      { time: "10:02", timestamp: "2026-09-16T10:02:00+05:30", busNumber: bus.number, quantity: 3, boardingStop: "Island Ground", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 3), destinationStage: "Adyar O.T.", status: "Processed" },
+      { time: "10:04", timestamp: "2026-09-16T10:04:00+05:30", busNumber: bus.number, quantity: 2, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: Math.max(4, busState.occupancy - 1), destinationStage: "SRP Tools", status: "Processed" },
+      { time: "10:07", timestamp: "2026-09-16T10:07:00+05:30", busNumber: bus.number, quantity: 5, boardingStop: "Adyar O.T.", currentStop: "Adyar O.T.", passengerCount: busState.occupancy, destinationStage: "Sholinganallur", status: "Pending / received" },
     ],
     occupancyTimeline: [
       { time: "10:14", camera: Math.max(4, busState.occupancy - 4), reconciled: null },
@@ -356,5 +403,20 @@ operatorRouter.get("/bus", (req, res) => {
 });
 
 operatorRouter.get("/security-events", (_req, res) => res.json(securityEvents));
+
+operatorRouter.get("/security-investigation", (req, res) => {
+  const query = parseQuery(GetSecurityInvestigationQueryParams, req.query);
+  const busNumber = query?.busNumber?.trim().toLowerCase();
+  const stop = query?.stop?.trim().toLowerCase();
+  const eventType = query?.eventType?.trim().toLowerCase();
+  const minConfidence = query?.minConfidence ?? 0;
+  const result = securityEvents.filter((event) =>
+    (!busNumber || event.busNumber.toLowerCase().includes(busNumber)) &&
+    (!stop || event.physicalStop.toLowerCase().includes(stop)) &&
+    (!eventType || event.eventType.toLowerCase().includes(eventType)) &&
+    event.confidence >= minConfidence,
+  );
+  res.json(result);
+});
 
 export { publicRouter as smartbusPublicRouter, operatorRouter as smartbusOperatorRouter };

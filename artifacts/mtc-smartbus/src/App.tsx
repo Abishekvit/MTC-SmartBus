@@ -17,6 +17,7 @@ import {
   OperatorPage,
   RoutePage,
   SecurityPage,
+  SecurityInvestigationPage,
   StopsPage,
 } from '@/pages/all';
 
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/operator" component={OperatorPage} />
         <Route path="/operator/bus/:busId" component={OperatorBusPage} />
         <Route path="/operator/security" component={SecurityPage} />
+        <Route path="/operator/security/investigation" component={SecurityInvestigationPage} />
         <Route component={NotFoundPage} />
       </Switch>
     </RoutedErrorBoundary>

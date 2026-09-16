@@ -197,6 +197,33 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SecurityEvent"
+  /operator/security-investigation:
+    get:
+      operationId: getSecurityInvestigation
+      tags: [operations]
+      summary: List simulated security investigation events
+      parameters:
+        - in: query
+          name: busNumber
+          schema: { type: string }
+        - in: query
+          name: stop
+          schema: { type: string }
+        - in: query
+          name: eventType
+          schema: { type: string }
+        - in: query
+          name: minConfidence
+          schema: { type: integer, minimum: 0, maximum: 100 }
+      responses:
+        "200":
+          description: Security investigation events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SecurityEvent"
 components:
   schemas:
     HealthStatus:
@@ -333,10 +360,15 @@ components:
               items: { $ref: "#/components/schemas/OccupancyPoint" }
     EtmEvent:
       type: object
-      required: [time, quantity, destinationStage, status]
+      required: [time, timestamp, busNumber, quantity, boardingStop, currentStop, passengerCount, destinationStage, status]
       properties:
         time: { type: string }
+        timestamp: { type: string }
+        busNumber: { type: string }
         quantity: { type: integer }
+        boardingStop: { type: string }
+        currentStop: { type: string }
+        passengerCount: { type: integer }
         destinationStage: { type: string }
         status: { type: string }
     OccupancyPoint:
@@ -348,14 +380,47 @@ components:
         reconciled: { type: ["integer", "null"] }
     SecurityEvent:
       type: object
-      required: [id, busNumber, location, time, eventType, confidence, status, source]
+      required: [id, busNumber, location, physicalStop, latitude, longitude, time, timestamp, eventType, confidence, status, statusDetail, source, personTrackId, objectId, objectType, interactionType, timeline, etmContext]
       properties:
         id: { type: string }
         busNumber: { type: string }
         location: { type: string }
+        physicalStop: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
         time: { type: string }
+        timestamp: { type: string }
         eventType: { type: string }
         confidence: { type: integer }
         status: { type: string, enum: [Under review, Acknowledged, Escalated, Dismissed] }
+        statusDetail: { type: string }
         source: { type: string }
+        personTrackId: { type: string }
+        objectId: { type: string }
+        objectType: { type: string }
+        interactionType: { type: string }
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityEventStep"
+        etmContext:
+          $ref: "#/components/schemas/EtmContext"
+    SecurityEventStep:
+      type: object
+      required: [time, label, detail, state]
+      properties:
+        time: { type: string }
+        label: { type: string }
+        detail: { type: string }
+        state: { type: string, enum: [complete, active, pending] }
+    EtmContext:
+      type: object
+      required: [transactionId, timestamp, boardingStop, currentStop, passengerCount, destinationStop]
+      properties:
+        transactionId: { type: string }
+        timestamp: { type: string }
+        boardingStop: { type: string }
+        currentStop: { type: string }
+        passengerCount: { type: integer }
+        destinationStop: { type: string }
 

@@ -6,14 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface EtmEvent {
-  time: string;
+export interface EtmContext {
+  transactionId: string;
   timestamp: string;
-  busNumber: string;
-  quantity: number;
   boardingStop: string;
   currentStop: string;
   passengerCount: number;
-  destinationStage: string;
-  status: string;
+  destinationStop: string;
 }

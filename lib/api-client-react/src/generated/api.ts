@@ -23,6 +23,7 @@ import type {
   GetOperatorBusParams,
   GetRouteParams,
   GetRouteStopsParams,
+  GetSecurityInvestigationParams,
   GetStopParams,
   GetStopsParams,
   HealthStatus,
@@ -946,6 +947,90 @@ export function useGetSecurityEvents<TData = Awaited<ReturnType<typeof getSecuri
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSecurityEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSecurityInvestigationUrl = (params?: GetSecurityInvestigationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/operator/security-investigation?${stringifiedParams}` : `/api/operator/security-investigation`
+}
+
+/**
+ * @summary List simulated security investigation events
+ */
+export const getSecurityInvestigation = async (params?: GetSecurityInvestigationParams, options?: Parameters<typeof customFetch>[1]): Promise<SecurityEvent[]> => {
+
+  return customFetch<SecurityEvent[]>(getGetSecurityInvestigationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSecurityInvestigationQueryKey = (params?: GetSecurityInvestigationParams,) => {
+    return [
+    `/api/operator/security-investigation`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSecurityInvestigationQueryOptions = <TData = Awaited<ReturnType<typeof getSecurityInvestigation>>, TError = ErrorType<unknown>>(params?: GetSecurityInvestigationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityInvestigation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSecurityInvestigationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSecurityInvestigation>>> = ({ signal }) => getSecurityInvestigation(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSecurityInvestigation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSecurityInvestigationQueryResult = NonNullable<Awaited<ReturnType<typeof getSecurityInvestigation>>>
+export type GetSecurityInvestigationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List simulated security investigation events
+ */
+
+export function useGetSecurityInvestigation<TData = Awaited<ReturnType<typeof getSecurityInvestigation>>, TError = ErrorType<unknown>>(
+ params?: GetSecurityInvestigationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityInvestigation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSecurityInvestigationQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
