@@ -1,0 +1,6 @@
+{
+  "name": "MTC SmartBus",
+  "description": "Smart transit management, live bus tracking, occupancy forecasting, and operator security intelligence for MTC buses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

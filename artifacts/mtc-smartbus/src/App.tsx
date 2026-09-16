@@ -31,6 +31,7 @@ function Router() {
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/bus/:busId" component={BusPage} />
+        <Route path="/routes" component={RoutePage} />
         <Route path="/routes/:routeId" component={RoutePage} />
         <Route path="/stops" component={StopsPage} />
         <Route path="/operator" component={OperatorPage} />

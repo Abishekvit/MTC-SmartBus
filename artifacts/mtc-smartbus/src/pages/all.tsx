@@ -4,6 +4,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   CalendarClock,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   Link2,
   LocateFixed,
   MapPinned,
+  Navigation,
   Radio,
   RefreshCw,
   Search,
@@ -77,22 +79,25 @@ function Chart({ points, color = 'hsl(var(--primary))', height = 150 }: { points
 }
 
 export function HomePage() {
-  const [search, setSearch] = useState('');
-  const [route, setRoute] = useState('');
-  const [selectedStop, setSelectedStop] = useState('');
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const [search, setSearch] = useState(urlParams.get('search') || '');
+  const [route, setRoute] = useState(urlParams.get('route') || '');
+  const [selectedStop, setSelectedStop] = useState(urlParams.get('stop') || '');
   const busesQuery = useGetBuses({ search: search || undefined, routeId: route || undefined }, { query: { refetchInterval: 30000, queryKey: getGetBusesQueryKey({ search: search || undefined, routeId: route || undefined }) } });
   const routesQuery = useGetRoutes({ query: { queryKey: getGetRoutesQueryKey() } });
+  const allStopsQuery = useGetStops({}, { query: { queryKey: getGetStopsQueryKey({}) } });
   const stopsQuery = useGetStops({ search: search || undefined }, { query: { enabled: !!search, queryKey: getGetStopsQueryKey({ search: search || undefined }) } });
-  const stopQuery = useGetStop({ stopId: selectedStop }, { query: { enabled: !!selectedStop, refetchInterval: 30000, queryKey: getGetStopQueryKey({ stopId: selectedStop }) } });
+  const stopQuery = useGetStop({ stopId: selectedStop }, { query: { enabled: !!selectedStop, refetchInterval: 15000, queryKey: getGetStopQueryKey({ stopId: selectedStop }) } });
   const buses = busesQuery.data ?? [];
   const routes = routesQuery.data ?? [];
+  const allStops = allStopsQuery.data ?? [];
   const stops = stopsQuery.data ?? [];
   return <AppShell><DemoBanner /><PageTitle eyebrow="Passenger companion · Chennai" title={<>Make the next bus<br /><span className="text-muted-foreground">the right bus.</span></>} description="Choose a route or bus, then set the physical stop where you will board. We will keep the occupancy picture close at hand." action={<div className="hidden rounded-full border border-border bg-card px-3 py-2 font-data text-[10px] uppercase tracking-[.12em] text-muted-foreground sm:flex sm:items-center sm:gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />Data checked just now</div>} />
     <div className="grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
-      <SectionCard className="animate-rise-delay-1 overflow-hidden !bg-primary text-primary-foreground shadow-[0_5px_0_hsl(var(--primary)/.35)]"><div className="relative"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full border-[28px] border-accent/15" /><div className="absolute -right-8 -top-12 h-40 w-40 rounded-full border border-accent/20" /><div className="relative"><div className="flex items-center gap-2 font-data text-[10px] uppercase tracking-[.16em] text-accent"><LocateFixed size={14} /> Plan your ride</div><h2 className="mt-4 max-w-lg font-display text-3xl font-bold tracking-[-.04em] sm:text-4xl">Where are you heading from?</h2><p className="mt-3 max-w-md text-sm leading-6 text-primary-foreground/65">Search a bus number, route, or familiar stop name. Start with the stop you can actually stand at.</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><div className="flex flex-1 items-center gap-3 rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-4 py-3 focus-within:border-accent"><Search size={18} className="shrink-0 text-primary-foreground/55" /><input aria-label="Search buses or stops" data-testid="input-search-home" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Bus 21G, T Nagar, Adyar..." className="w-full bg-transparent text-sm text-primary-foreground outline-none placeholder:text-primary-foreground/45" />{search && <button type="button" aria-label="Clear search" data-testid="button-clear-search" onClick={() => setSearch('')}><XCircle size={16} /></button>}</div><select aria-label="Filter by route" data-testid="select-route-home" value={route} onChange={(e) => setRoute(e.target.value)} className="rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-3 text-sm text-primary-foreground outline-none"><option value="" className="text-primary">All routes</option>{routes.map((item: any) => <option key={item.id} value={item.id} className="text-primary">{item.routeNumber} · {item.origin}</option>)}</select></div>{search && stops.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{stops.slice(0, 3).map((stop: any) => <button key={stop.id} type="button" data-testid={`button-stop-suggestion-${stop.id}`} onClick={() => { setSelectedStop(stop.id); setSearch(stop.name); }} className="rounded-lg border border-primary-foreground/15 bg-primary-foreground/10 px-3 py-2 text-left text-xs hover:bg-primary-foreground/20"><MapPinned size={13} className="mr-1 inline" />{stop.name}</button>)}</div>}</div></div></SectionCard>
-      <SectionCard title="Quick actions" eyebrow="Small decisions, made easy" className="animate-rise-delay-2"><div className="space-y-2">{[{ href: '/stops', icon: MapPinned, title: 'Find a physical stop', text: 'Browse stops near your usual places' }, { href: '/routes/route-21g', icon: CalendarClock, title: 'See route 21G', text: 'View every stop in sequence' }, { href: '/operator', icon: Activity, title: 'Operator desk', text: 'Fleet visibility for transport teams' }].map((item) => { const Icon = item.icon; return <Link key={item.href} href={item.href} data-testid={`link-quick-${item.title.toLowerCase().replaceAll(' ', '-')}`} className="group flex items-center gap-3 rounded-xl border border-transparent p-3 hover:border-border hover:bg-background"><span className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-primary"><Icon size={18} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-primary">{item.title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{item.text}</span></span><ChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-1" /></Link>; })}</div></SectionCard>
+      <SectionCard className="animate-rise-delay-1 overflow-hidden !bg-primary text-primary-foreground shadow-[0_5px_0_hsl(var(--primary)/.35)]"><div className="relative"><div className="absolute -right-20 -top-24 h-64 w-64 rounded-full border-[28px] border-accent/15" /><div className="absolute -right-8 -top-12 h-40 w-40 rounded-full border border-accent/20" /><div className="relative"><div className="flex items-center gap-2 font-data text-[10px] uppercase tracking-[.16em] text-accent"><LocateFixed size={14} /> Plan your ride</div><h2 className="mt-4 max-w-lg font-display text-3xl font-bold tracking-[-.04em] sm:text-4xl">Where are you heading from?</h2><p className="mt-3 max-w-md text-sm leading-6 text-primary-foreground/65">Search a bus number, route, or familiar stop name. Filter by route or choose your boarding stop directly.</p><div className="mt-7 flex flex-col gap-3 sm:flex-row"><div className="flex flex-1 items-center gap-3 rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-4 py-3 focus-within:border-accent"><Search size={18} className="shrink-0 text-primary-foreground/55" /><input aria-label="Search buses or stops" data-testid="input-search-home" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Bus 21G, 102, Adyar, Guindy, Central..." className="w-full bg-transparent text-sm text-primary-foreground outline-none placeholder:text-primary-foreground/45" />{search && <button type="button" aria-label="Clear search" data-testid="button-clear-search" onClick={() => setSearch('')}><XCircle size={16} /></button>}</div><select aria-label="Filter by route" data-testid="select-route-home" value={route} onChange={(e) => setRoute(e.target.value)} className="rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-3 text-sm text-primary-foreground outline-none"><option value="" className="text-primary">All routes</option>{routes.map((item: any) => <option key={item.id} value={item.id} className="text-primary">{item.routeNumber} · {item.origin}</option>)}</select><select aria-label="Filter by boarding stop" data-testid="select-stop-home" value={selectedStop} onChange={(e) => setSelectedStop(e.target.value)} className="rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-3 text-sm text-primary-foreground outline-none"><option value="" className="text-primary">Boarding stop (All)</option>{allStops.map((item: any) => <option key={item.id} value={item.id} className="text-primary">{item.name}</option>)}</select></div>{search && stops.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{stops.slice(0, 4).map((stop: any) => <button key={stop.id} type="button" data-testid={`button-stop-suggestion-${stop.id}`} onClick={() => { setSelectedStop(stop.id); setSearch(''); }} className="rounded-lg border border-primary-foreground/15 bg-primary-foreground/10 px-3 py-2 text-left text-xs hover:bg-primary-foreground/20"><MapPinned size={13} className="mr-1 inline" />Set stop: {stop.name}</button>)}</div>}</div></div></SectionCard>
+      <SectionCard title="Quick actions" eyebrow="Small decisions, made easy" className="animate-rise-delay-2"><div className="space-y-2">{[{ href: '/stops', icon: MapPinned, title: 'Find a physical stop', text: 'Live arrivals & buses at all 11+ stops' }, { href: '/routes', icon: CalendarClock, title: 'Explore routes', text: 'View Route 102, 21G, 23C stops in sequence' }, { href: '/operator', icon: Activity, title: 'Operator desk', text: 'Fleet visibility for transport teams' }].map((item) => { const Icon = item.icon; return <Link key={item.href} href={item.href} data-testid={`link-quick-${item.title.toLowerCase().replaceAll(' ', '-')}`} className="group flex items-center gap-3 rounded-xl border border-transparent p-3 hover:border-border hover:bg-background"><span className="grid h-10 w-10 place-items-center rounded-lg bg-secondary text-primary"><Icon size={18} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-bold text-primary">{item.title}</span><span className="mt-0.5 block text-xs text-muted-foreground">{item.text}</span></span><ChevronRight size={16} className="text-muted-foreground transition-transform group-hover:translate-x-1" /></Link>; })}</div></SectionCard>
     </div>
-    {selectedStop && stopQuery.data && <div className="mt-5 animate-rise"><SectionCard className="border-accent/50 bg-accent/10"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Selected boarding stop</div><h2 className="mt-1 font-display text-2xl font-bold text-primary">{stopQuery.data.stop.name}</h2><p className="mt-1 text-sm text-muted-foreground">{stopQuery.data.routes.join(' · ')} · approximate arrivals</p></div><button type="button" data-testid="button-clear-stop" className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-primary hover:bg-secondary" onClick={() => setSelectedStop('')}>Change stop</button></div><div className="mt-5 grid gap-3 sm:grid-cols-3">{stopQuery.data.upcomingBuses.slice(0, 3).map((bus: any) => <BusCard key={bus.id} bus={bus} compact />)}</div></SectionCard></div>}
+    {selectedStop && stopQuery.data && <div className="mt-5 animate-rise"><SectionCard className="border-accent/50 bg-accent/10"><div className="flex flex-wrap items-center justify-between gap-4"><div><div className="font-data text-[10px] uppercase tracking-[.14em] text-muted-foreground">Selected boarding stop</div><h2 className="mt-1 font-display text-2xl font-bold text-primary">{stopQuery.data.stop.name}</h2><p className="mt-1 text-sm text-muted-foreground">Routes: {stopQuery.data.routes.join(' · ')} · {stopQuery.data.upcomingBuses?.length || 0} buses approaching</p></div><div className="flex items-center gap-2"><Link href={`/stops?stop=${selectedStop}`} className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-primary hover:bg-secondary">Stop details</Link><button type="button" data-testid="button-clear-stop" className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-bold text-primary hover:bg-secondary" onClick={() => setSelectedStop('')}>Change stop</button></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{stopQuery.data.upcomingBuses.length === 0 ? <p className="text-xs text-muted-foreground col-span-3">No upcoming buses currently tracked for this stop.</p> : stopQuery.data.upcomingBuses.map((bus: any) => <BusCard key={bus.id} bus={bus} compact />)}</div></SectionCard></div>}
     <div className="mt-9 flex items-end justify-between gap-4"><div><div className="font-data text-[10px] uppercase tracking-[.16em] text-muted-foreground">Around your network</div><h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-primary">Nearby buses</h2></div><Link href="/stops" data-testid="link-see-stops" className="text-xs font-bold text-primary underline decoration-accent decoration-2 underline-offset-4">Browse all stops</Link></div>
     <div className="mt-4 grid gap-4 xl:grid-cols-3">{busesQuery.isLoading ? <LoadingState rows={3} /> : busesQuery.isError ? <div className="xl:col-span-3"><ErrorState /></div> : buses.length === 0 ? <div className="xl:col-span-3"><EmptyState title="No buses match that search" text="Try a route number, a stop name, or clear the filters." /></div> : buses.slice(0, 6).map((bus: any, i: number) => <div key={bus.id} className={cx('animate-rise', `animate-rise-delay-${Math.min(i + 1, 3)}`)}><BusCard bus={bus} /></div>)}</div>
   </AppShell>;
@@ -111,25 +116,365 @@ export function BusPage() {
 }
 
 export function RoutePage() {
-  const { routeId = '21G' } = useParams<{ routeId: string }>();
-  const routeQuery = useGetRoute({ routeId }, { query: { enabled: !!routeId, queryKey: getGetRouteQueryKey({ routeId }) } });
-  const stopsQuery = useGetRouteStops({ routeId }, { query: { enabled: !!routeId, queryKey: getGetRouteStopsQueryKey({ routeId }) } });
+  const params = useParams<{ routeId?: string }>();
+  const allRoutesQuery = useGetRoutes({ query: { queryKey: getGetRoutesQueryKey() } });
+  const allRoutes: any[] = allRoutesQuery.data ?? [];
+
+  const activeRouteParam = params.routeId?.trim();
+  const effectiveRouteId = activeRouteParam || (allRoutes[0]?.id ?? 'route-21g');
+
+  const routeQuery = useGetRoute(
+    { routeId: effectiveRouteId },
+    { query: { enabled: !!effectiveRouteId, queryKey: getGetRouteQueryKey({ routeId: effectiveRouteId }) } },
+  );
+  const stopsQuery = useGetRouteStops(
+    { routeId: effectiveRouteId },
+    { query: { enabled: !!effectiveRouteId, queryKey: getGetRouteStopsQueryKey({ routeId: effectiveRouteId }) } },
+  );
   const route: any = routeQuery.data;
   const stops: any[] = stopsQuery.data ?? route?.stops ?? [];
+
   if (routeQuery.isLoading || stopsQuery.isLoading) return <AppShell><LoadingState rows={6} /></AppShell>;
-  if (routeQuery.isError || stopsQuery.isError || !route) return <AppShell><ErrorState message="This route is not available in the demo feed." /></AppShell>;
-  return <AppShell><Link href="/" data-testid="link-back-route" className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary"><ArrowLeft size={15} />Passenger home</Link><DemoBanner /><PageTitle eyebrow={`Route ${route.routeNumber} · ${route.serviceType}`} title={`${route.origin} to ${route.destination}`} description="A physical-stop timeline for planning where you will board and where you will get off." action={<StatusPill status={route.liveTracking ? 'Live tracking' : 'Schedule only'} />} /><div className="grid gap-5 lg:grid-cols-[.72fr_1.28fr]"><SectionCard title="Route at a glance" eyebrow="One line, all the way"><MiniMap points={stops} busPoint={false} /><div className="mt-5 grid grid-cols-2 gap-3"><Metric label="Physical stops" value={stops.length} icon={MapPinned} /><Metric label="Tracking" value={route.liveTracking ? 'Live' : 'Off'} icon={Radio} /></div></SectionCard><SectionCard title="Stop sequence" eyebrow="Boarding order"><div className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-secondary p-3 text-xs text-muted-foreground"><span><strong className="text-primary">{stops.length}</strong> stops on this direction</span><span className="font-data text-[10px] uppercase tracking-[.1em]">First to last</span></div><RouteTimeline stops={stops} active={-1} /></SectionCard></div><SectionCard title="Choose a stop to start a bus view" eyebrow="Next step" className="mt-5"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{stops.slice(0, 8).map((stop: any) => <Link key={stop.id} href="/" data-testid={`link-route-stop-${stop.id}`} className="group rounded-xl border border-border p-3 hover:border-accent hover:bg-accent/10"><div className="font-data text-[10px] text-muted-foreground">STOP {String(stop.sequence).padStart(2, '0')}</div><div className="mt-2 text-sm font-bold text-primary">{stop.name}</div><div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">See buses <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5" /></div></Link>)}</div></SectionCard></AppShell>;
+
+  if (routeQuery.isError || stopsQuery.isError || !route) {
+    return (
+      <AppShell>
+        <div className="space-y-6">
+          <Link href="/" data-testid="link-back-route" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary">
+            <ArrowLeft size={15} /> Passenger home
+          </Link>
+          <PageTitle eyebrow="Route directory" title="Select a Route" description="Choose one of the available active routes to inspect its physical stops and live status." />
+          {allRoutes.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {allRoutes.map((r: any) => (
+                <Link
+                  key={r.id}
+                  href={`/routes/${r.id}`}
+                  className="group block rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-xl bg-primary px-3 py-1 font-display text-sm font-bold text-primary-foreground">{r.routeNumber}</span>
+                    <StatusPill status={r.serviceType} />
+                  </div>
+                  <div className="mt-4 text-base font-bold text-primary">{r.origin} <span className="text-muted-foreground">to</span> {r.destination}</div>
+                  <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                    <span>{r.stops?.length || 0} stops</span>
+                    <span className="font-semibold text-primary group-hover:underline">View stops →</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          <ErrorState message="The requested route ID was not found. Please select from the available routes above." />
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <Link href="/" data-testid="link-back-route" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary">
+          <ArrowLeft size={15} /> Passenger home
+        </Link>
+        {allRoutes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-data text-[10px] uppercase tracking-wider text-muted-foreground">All routes:</span>
+            {allRoutes.map((r: any) => {
+              const isSelected = r.id === route?.id || r.routeNumber.toLowerCase() === route?.routeNumber?.toLowerCase();
+              return (
+                <Link
+                  key={r.id}
+                  href={`/routes/${r.id}`}
+                  data-testid={`link-switch-route-${r.routeNumber.toLowerCase()}`}
+                  className={cx(
+                    'rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'border border-border bg-card text-foreground hover:bg-secondary',
+                  )}
+                >
+                  {r.routeNumber}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <DemoBanner />
+      <PageTitle
+        eyebrow={`Route ${route.routeNumber} · ${route.serviceType}`}
+        title={`${route.origin} to ${route.destination}`}
+        description="A physical-stop timeline for planning where you will board and where you will get off."
+        action={<StatusPill status={route.liveTracking ? 'Live tracking' : 'Schedule only'} />}
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[.72fr_1.28fr]">
+        <SectionCard title="Route at a glance" eyebrow="One line, all the way">
+          <MiniMap points={stops} busPoint={false} />
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <Metric label="Physical stops" value={stops.length} icon={MapPinned} />
+            <Metric label="Tracking" value={route.liveTracking ? 'Live' : 'Off'} icon={Radio} />
+          </div>
+        </SectionCard>
+        <SectionCard title="Stop sequence" eyebrow="Boarding order">
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-secondary p-3 text-xs text-muted-foreground">
+            <span><strong className="text-primary">{stops.length}</strong> stops on this direction</span>
+            <span className="font-data text-[10px] uppercase tracking-[.1em]">First to last</span>
+          </div>
+          <RouteTimeline stops={stops} active={-1} />
+        </SectionCard>
+      </div>
+
+      <SectionCard title="Choose a stop to start a bus view" eyebrow="Next step" className="mt-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {stops.slice(0, 8).map((stop: any) => (
+            <Link
+              key={stop.id}
+              href={`/stops?stop=${stop.id}`}
+              data-testid={`link-route-stop-${stop.id}`}
+              className="group rounded-xl border border-border p-3 hover:border-accent hover:bg-accent/10"
+            >
+              <div className="font-data text-[10px] text-muted-foreground">STOP {String(stop.sequence).padStart(2, '0')}</div>
+              <div className="mt-2 text-sm font-bold text-primary">{stop.name}</div>
+              <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                See buses <ArrowUpRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </SectionCard>
+    </AppShell>
+  );
 }
 
 export function StopsPage() {
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const [search, setSearch] = useState('');
   const query = useGetStops({ search: search || undefined }, { query: { refetchInterval: 60000, queryKey: getGetStopsQueryKey({ search: search || undefined }) } });
   const stops: any[] = query.data ?? [];
-  return <AppShell><DemoBanner /><PageTitle eyebrow="Physical stop directory" title="Find where to stand." description="Stops are physical places, not just names on a route. Search the stop you can reach and see the buses expected there." action={<div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-xs text-muted-foreground"><MapPinned size={14} /> {stops.length || '—'} stops indexed</div>} /><SectionCard className="mb-5"><div className="flex items-center gap-3 rounded-xl border border-input bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-accent"><Search size={18} className="text-muted-foreground" /><input aria-label="Search physical stops" data-testid="input-search-stops" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stop name or landmark" className="w-full bg-transparent text-sm text-primary outline-none placeholder:text-muted-foreground" />{search && <button type="button" aria-label="Clear stops search" data-testid="button-clear-stops-search" onClick={() => setSearch('')}><XCircle size={16} className="text-muted-foreground" /></button>}</div></SectionCard><div className="grid gap-5 lg:grid-cols-[1fr_.8fr]"><SectionCard title="Stops near the network" eyebrow="Search results">{query.isLoading ? <LoadingState rows={5} /> : query.isError ? <ErrorState /> : stops.length === 0 ? <EmptyState title="No stop found" text="Try a wider name, such as T Nagar or Central." /> : <div className="divide-y divide-border">{stops.map((stop: any, i: number) => <StopRow key={stop.id} stop={stop} index={i} />)}</div>}</SectionCard><SectionCard title="How to use this" eyebrow="A better boarding decision"><div className="space-y-5"><div className="flex gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent font-data text-xs font-bold text-primary">01</span><div><div className="text-sm font-bold text-primary">Find the exact stop</div><p className="mt-1 text-xs leading-5 text-muted-foreground">Use the physical stop name you see on the road, not only the route number.</p></div></div><div className="flex gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary font-data text-xs font-bold text-primary">02</span><div><div className="text-sm font-bold text-primary">Choose an approaching bus</div><p className="mt-1 text-xs leading-5 text-muted-foreground">Compare its arrival and predicted occupancy for your stop.</p></div></div><div className="flex gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary font-data text-xs font-bold text-primary">03</span><div><div className="text-sm font-bold text-primary">Leave a little margin</div><p className="mt-1 text-xs leading-5 text-muted-foreground">The demo forecast updates over time; road conditions still win.</p></div></div></div></SectionCard></div></AppShell>;
+  const [selectedStopId, setSelectedStopId] = useState(urlParams.get('stop') || '');
+
+  const activeStopId = selectedStopId || (stops.length > 0 ? stops[0].id : '');
+  const stopDetailQuery = useGetStop(
+    { stopId: activeStopId },
+    { query: { enabled: !!activeStopId, refetchInterval: 15000, queryKey: getGetStopQueryKey({ stopId: activeStopId }) } }
+  );
+  const stopDetail = stopDetailQuery.data;
+
+  return (
+    <AppShell>
+      <DemoBanner />
+      <PageTitle
+        eyebrow="Physical stop directory"
+        title="Find where to stand."
+        description="Stops are physical places. Select any stop to see live approaching buses, predicted occupancies, and arrival ETAs."
+        action={
+          <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-2 text-xs text-muted-foreground">
+            <MapPinned size={14} /> {stops.length || '—'} stops indexed
+          </div>
+        }
+      />
+      <SectionCard className="mb-5">
+        <div className="flex items-center gap-3 rounded-xl border border-input bg-background px-4 py-3 focus-within:ring-2 focus-within:ring-accent">
+          <Search size={18} className="text-muted-foreground" />
+          <input
+            aria-label="Search physical stops"
+            data-testid="input-search-stops"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search stop name (e.g. Adyar, Guindy, Central, Tambaram...)"
+            className="w-full bg-transparent text-sm text-primary outline-none placeholder:text-muted-foreground"
+          />
+          {search && (
+            <button type="button" aria-label="Clear stops search" data-testid="button-clear-stops-search" onClick={() => setSearch('')}>
+              <XCircle size={16} className="text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      </SectionCard>
+      <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
+        <SectionCard title="Stops in network" eyebrow="Select a stop to inspect">
+          {query.isLoading ? (
+            <LoadingState rows={5} />
+          ) : query.isError ? (
+            <ErrorState />
+          ) : stops.length === 0 ? (
+            <EmptyState title="No stop found" text="Try a wider name, such as T Nagar, Adyar, or Central." />
+          ) : (
+            <div className="divide-y divide-border">
+              {stops.map((stop: any, i: number) => (
+                <StopRow
+                  key={stop.id}
+                  stop={stop}
+                  index={i}
+                  isSelected={stop.id === activeStopId}
+                  onSelect={() => setSelectedStopId(stop.id)}
+                />
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        <div className="space-y-5">
+          <SectionCard
+            title={stopDetail ? stopDetail.stop.name : 'Select a physical stop'}
+            eyebrow="Stop live monitor"
+            action={
+              stopDetail ? (
+                <Link
+                  href={`/?stop=${stopDetail.stop.id}`}
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-bold text-primary hover:bg-secondary"
+                >
+                  Board here on Find a bus →
+                </Link>
+              ) : undefined
+            }
+          >
+            {stopDetailQuery.isLoading ? (
+              <LoadingState rows={4} />
+            ) : stopDetail ? (
+              <div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-data font-semibold text-primary">
+                    {stopDetail.stop.latitude.toFixed(4)}, {stopDetail.stop.longitude.toFixed(4)}
+                  </span>
+                  <span>·</span>
+                  <span>Serving routes:</span>
+                  {stopDetail.routes.map((r: string) => (
+                    <span key={r} className="rounded-md bg-primary/10 px-2 py-0.5 font-display text-xs font-bold text-primary">
+                      {r}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-5 border-t border-border pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-primary">Approaching buses</h3>
+                    <span className="font-data text-xs text-muted-foreground">
+                      {stopDetail.upcomingBuses?.length || 0} buses en route
+                    </span>
+                  </div>
+
+                  {stopDetail.upcomingBuses && stopDetail.upcomingBuses.length > 0 ? (
+                    <div className="mt-3 space-y-3">
+                      {stopDetail.upcomingBuses.map((b: any) => (
+                        <div
+                          key={b.id}
+                          className="group rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary font-display text-sm font-bold text-primary-foreground">
+                                {b.number}
+                              </span>
+                              <div>
+                                <div className="font-data text-[10px] text-muted-foreground">
+                                  Route {b.routeNumber} · {b.serviceType}
+                                </div>
+                                <div className="text-sm font-bold text-primary">
+                                  {b.origin} <span className="text-muted-foreground font-normal">to</span> {b.destination}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-display text-2xl font-bold text-primary">
+                                {b.etaMinutes}<span className="text-xs font-semibold text-muted-foreground">m</span>
+                              </div>
+                              <div className="font-data text-[10px] uppercase text-muted-foreground">ETA to stop</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-xs">
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Navigation size={13} /> Near {b.currentLocation}
+                            </span>
+                            <span className="font-medium text-primary">
+                              {b.currentOccupancy} / {b.capacity} pax ({b.crowding})
+                            </span>
+                          </div>
+
+                          <div className="mt-3">
+                            <OccupancyBar value={b.currentOccupancy} capacity={b.capacity} />
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <StatusPill status={b.status} />
+                            <Link
+                              href={`/bus/${b.id}?targetStopId=${activeStopId}`}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
+                            >
+                              Track bus live <ArrowRight size={13} />
+                            </Link>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-border/80 bg-secondary/40 p-5 text-center text-sm text-muted-foreground">
+                      No live buses approaching this stop right now. Check back in a few minutes or switch routes.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <EmptyState title="Select a stop" text="Click any stop on the left to see live approaching buses, ETAs, and occupancy." />
+            )}
+          </SectionCard>
+        </div>
+      </div>
+    </AppShell>
+  );
 }
 
-function StopRow({ stop, index }: { stop: any; index: number }) {
-  return <div className="flex items-center gap-3 py-4" data-testid={`row-stop-${stop.id}`}><div className="font-data text-[10px] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div><div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-primary"><MapPinned size={17} /></div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-primary">{stop.name}</div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{stop.routes?.join(' · ') || 'Multiple routes'}</span><span className="font-data">{stop.latitude.toFixed(3)}, {stop.longitude.toFixed(3)}</span></div></div><Link href="/" data-testid={`link-stop-${stop.id}`} className="grid h-9 w-9 place-items-center rounded-lg border border-border text-primary hover:bg-accent"><ChevronRight size={16} /></Link></div>;
+function StopRow({
+  stop,
+  index,
+  isSelected,
+  onSelect,
+}: {
+  stop: any;
+  index: number;
+  isSelected?: boolean;
+  onSelect?: () => void;
+}) {
+  return (
+    <div
+      className={cx(
+        'flex items-center gap-3 py-3 px-2 rounded-xl transition-colors cursor-pointer',
+        isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary/60'
+      )}
+      onClick={onSelect}
+      data-testid={`row-stop-${stop.id}`}
+    >
+      <div className="font-data text-[10px] text-muted-foreground">{String(index + 1).padStart(2, '0')}</div>
+      <div className={cx("grid h-10 w-10 place-items-center rounded-xl", isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-primary")}>
+        <MapPinned size={17} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-bold text-primary">{stop.name}</div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>{stop.routes?.join(' · ') || 'Multiple routes'}</span>
+          <span className="font-data">{stop.latitude.toFixed(3)}, {stop.longitude.toFixed(3)}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.();
+        }}
+        data-testid={`button-select-stop-${stop.id}`}
+        className={cx(
+          'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+          isSelected ? 'bg-primary text-primary-foreground shadow-sm' : 'border border-border hover:bg-secondary text-primary'
+        )}
+      >
+        {isSelected ? 'Viewing' : 'View buses'}
+      </button>
+    </div>
+  );
 }
 
 export function OperatorPage() {

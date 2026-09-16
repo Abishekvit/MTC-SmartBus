@@ -525,8 +525,47 @@ function requireOperator(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-function routeFor(id: string) {
-  return routes.find((route) => route.id === id) ?? routes[0];
+function findRoute(identifier?: string): Route | undefined {
+  if (!identifier) return undefined;
+  const raw = identifier.trim().toLowerCase();
+  const clean = raw.replace(/^route-/, "");
+  return routes.find(
+    (r) =>
+      r.id.toLowerCase() === raw ||
+      r.routeNumber.toLowerCase() === raw ||
+      r.id.toLowerCase() === `route-${raw}` ||
+      r.routeNumber.toLowerCase() === clean ||
+      r.id.toLowerCase() === `route-${clean}`,
+  );
+}
+
+function routeFor(id: string): Route {
+  return findRoute(id) ?? routes[0];
+}
+
+function findBus(identifier?: string) {
+  if (!identifier) return undefined;
+  const raw = identifier.trim().toLowerCase();
+  const clean = raw.replace(/^bus-/, "");
+  return buses.find(
+    (b) =>
+      b.id.toLowerCase() === raw ||
+      b.number.toLowerCase() === raw ||
+      b.id.toLowerCase() === `bus-${raw}` ||
+      b.number.toLowerCase() === clean,
+  );
+}
+
+function findStop(identifier?: string) {
+  if (!identifier) return undefined;
+  const raw = identifier.trim().toLowerCase();
+  const allStops = routes.flatMap((route) => route.stops);
+  return allStops.find(
+    (s) =>
+      s.id.toLowerCase() === raw ||
+      s.name.toLowerCase() === raw ||
+      s.id.toLowerCase().replace(/-/g, " ") === raw,
+  );
 }
 
 function getBusState(busId: string) {
@@ -634,29 +673,37 @@ publicRouter.get("/routes", (_req, res) => res.json(routes));
 
 publicRouter.get("/route", (req, res) => {
   const query = parseQuery(GetRouteQueryParams, req.query);
-  const route = routes.find((item) => item.id === query?.routeId);
+  const route = findRoute(query?.routeId);
   return route ? res.json(route) : res.status(404).json({ error: "Route information unavailable" });
 });
 
 publicRouter.get("/route/stops", (req, res) => {
   const query = parseQuery(GetRouteStopsQueryParams, req.query);
-  const route = routes.find((item) => item.id === query?.routeId);
+  const route = findRoute(query?.routeId);
   return route ? res.json(route.stops) : res.status(404).json({ error: "Route stops unavailable" });
 });
 
 publicRouter.get("/buses", (req, res) => {
   const search = String(req.query.search ?? "").trim().toLowerCase();
-  const routeId = String(req.query.routeId ?? "").trim();
+  const routeParam = String(req.query.routeId ?? "").trim();
+  const matchedRoute = routeParam ? findRoute(routeParam) : undefined;
+  const targetRouteId = matchedRoute ? matchedRoute.id : routeParam;
   const result = buses
     .map(busSummary)
-    .filter((bus) => !routeId || bus.routeId === routeId)
-    .filter((bus) => !search || `${bus.number} ${bus.routeNumber} ${bus.origin} ${bus.destination} ${bus.currentLocation}`.toLowerCase().includes(search));
+    .filter((bus) => !routeParam || bus.routeId === targetRouteId || bus.routeNumber.toLowerCase() === routeParam.toLowerCase())
+    .filter((bus) => {
+      if (!search) return true;
+      const r = routeFor(bus.routeId);
+      const stopNames = r?.stops ? r.stops.map((s) => s.name).join(" ") : "";
+      const fullSearchString = `${bus.number} ${bus.routeNumber} ${bus.origin} ${bus.destination} ${bus.currentLocation} ${bus.serviceType} ${stopNames}`.toLowerCase();
+      return fullSearchString.includes(search);
+    });
   res.json(result);
 });
 
 publicRouter.get("/bus", (req, res) => {
   const query = parseQuery(GetBusQueryParams, req.query);
-  const bus = buses.find((item) => item.id === query?.busId);
+  const bus = findBus(query?.busId);
   return bus ? res.json(busDetails(bus, query?.targetStopId)) : res.status(404).json({ error: "Bus information unavailable" });
 });
 
@@ -669,13 +716,36 @@ publicRouter.get("/stops", (req, res) => {
 
 publicRouter.get("/stop", (req, res) => {
   const query = parseQuery(GetStopQueryParams, req.query);
-  const allStops = routes.flatMap((route) => route.stops);
-  const stop = allStops.find((item) => item.id === query?.stopId);
+  const stop = findStop(query?.stopId);
   if (!stop) return res.status(404).json({ error: "Stop information unavailable" });
+  const relevantBuses = buses
+    .filter((bus) => bus.routeId && routeFor(bus.routeId).stops.some((item) => item.id === stop.id))
+    .map((bus) => {
+      const summary = busSummary(bus);
+      const route = routeFor(bus.routeId);
+      const busState = getBusState(bus.id);
+      const currentIndex = busState.stopIndex;
+      const targetIndex = route.stops.findIndex((s) => s.id === stop.id);
+      let etaMinutes = 5;
+      if (targetIndex >= 0) {
+        if (targetIndex >= currentIndex) {
+          etaMinutes = Math.max(2, (targetIndex - currentIndex) * 3 + (busState.tick % 3));
+        } else {
+          etaMinutes = Math.max(6, (route.stops.length - currentIndex + targetIndex) * 3);
+        }
+      }
+      return {
+        ...summary,
+        etaMinutes,
+        predictedOccupancy: stopForecast(bus, stop.id),
+      };
+    })
+    .sort((a, b) => a.etaMinutes - b.etaMinutes);
+
   return res.json({
     stop,
     routes: stop.routes,
-    upcomingBuses: buses.map(busSummary).filter((bus) => bus.routeId && routeFor(bus.routeId).stops.some((item) => item.id === stop.id)).slice(0, 4),
+    upcomingBuses: relevantBuses,
   });
 });
 
@@ -702,7 +772,7 @@ operatorRouter.get("/overview", async (_req, res) => {
 
 operatorRouter.get("/bus", async (req, res) => {
   const query = parseQuery(GetOperatorBusQueryParams, req.query);
-  const bus = buses.find((item) => item.id === query?.busId);
+  const bus = findBus(query?.busId);
   if (!bus) return res.status(404).json({ error: "Operator bus information unavailable" });
 
   try {

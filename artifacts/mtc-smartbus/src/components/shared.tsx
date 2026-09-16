@@ -38,7 +38,7 @@ export function Logo() {
 const navItems = [
   { href: '/', label: 'Find a bus', icon: Search },
   { href: '/stops', label: 'Physical stops', icon: MapPin },
-  { href: '/routes/21G', label: 'Routes', icon: RouteIcon },
+  { href: '/routes', label: 'Routes', icon: RouteIcon },
 ];
 const operatorItems = [
   { href: '/operator', label: 'Fleet overview', icon: Gauge },

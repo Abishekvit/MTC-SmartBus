@@ -2,18 +2,34 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
-  },
   "private": true,
+  "type": "module",
+  "workspaces": [
+    "artifacts/*",
+    "lib/*",
+    "scripts"
+  ],
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "npm run build --workspace=@workspace/mtc-smartbus && esbuild server.ts --bundle --platform=node --format=cjs --external:express --external:cors --external:pino --external:pino-http --external:cookie-parser --external:pg --external:drizzle-orm --external:vite --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "npm run typecheck:libs"
+  },
   "dependencies": {
-    "@replit/connectors-sdk": "^0.4.1"
+    "@replit/connectors-sdk": "^0.4.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "esbuild": "^0.28.2",
     "prettier": "^3.9.6",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.3"
   }
 }
