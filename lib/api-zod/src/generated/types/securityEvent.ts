@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EtmContext } from './etmContext';
+import type { SecurityEventAudit } from './securityEventAudit';
 import type { SecurityEventStatus } from './securityEventStatus';
 import type { SecurityEventStep } from './securityEventStep';
 
@@ -29,4 +30,5 @@ export interface SecurityEvent {
   interactionType: string;
   timeline: SecurityEventStep[];
   etmContext: EtmContext;
+  reviewHistory: SecurityEventAudit[];
 }

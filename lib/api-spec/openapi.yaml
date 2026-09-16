@@ -197,6 +197,53 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SecurityEvent"
+    post:
+      operationId: reviewSecurityEvent
+      tags: [operations]
+      summary: Review a security event as an authenticated operator
+      security:
+        - operatorBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecurityEventReview"
+      responses:
+        "200":
+          description: Updated security event and audit entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEventReviewResponse"
+        "400":
+          description: Invalid review request
+        "401":
+          description: Authenticated operator access is required
+        "404":
+          description: Security event not found
+        "409":
+          description: Event already has the requested status
+  /operator/security-events/audit:
+    get:
+      operationId: getSecurityEventAudit
+      tags: [operations]
+      summary: List the authenticated operator audit trail
+      security:
+        - operatorBearer: []
+      parameters:
+        - in: query
+          name: eventId
+          schema: { type: string }
+      responses:
+        "200":
+          description: Security event audit entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityEventAuditResponse"
+        "401":
+          description: Authenticated operator access is required
   /operator/security-investigation:
     get:
       operationId: getSecurityInvestigation
@@ -225,6 +272,11 @@ paths:
                 items:
                   $ref: "#/components/schemas/SecurityEvent"
 components:
+  securitySchemes:
+    operatorBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: operator-token
   schemas:
     HealthStatus:
       type: object
@@ -380,7 +432,7 @@ components:
         reconciled: { type: ["integer", "null"] }
     SecurityEvent:
       type: object
-      required: [id, busNumber, location, physicalStop, latitude, longitude, time, timestamp, eventType, confidence, status, statusDetail, source, personTrackId, objectId, objectType, interactionType, timeline, etmContext]
+      required: [id, busNumber, location, physicalStop, latitude, longitude, time, timestamp, eventType, confidence, status, statusDetail, source, personTrackId, objectId, objectType, interactionType, timeline, etmContext, reviewHistory]
       properties:
         id: { type: string }
         busNumber: { type: string }
@@ -405,6 +457,46 @@ components:
             $ref: "#/components/schemas/SecurityEventStep"
         etmContext:
           $ref: "#/components/schemas/EtmContext"
+        reviewHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityEventAudit"
+    SecurityEventReview:
+      type: object
+      required: [eventId, action]
+      properties:
+        eventId: { type: string }
+        action: { type: string, enum: [acknowledge, escalate, dismiss] }
+        note: { type: string, maxLength: 500 }
+    SecurityEventAudit:
+      type: object
+      required: [id, eventId, action, fromStatus, toStatus, operatorId, operatorRole, timestamp]
+      properties:
+        id: { type: string }
+        eventId: { type: string }
+        action: { type: string, enum: [acknowledge, escalate, dismiss] }
+        fromStatus: { type: string, enum: [Under review, Acknowledged, Escalated, Dismissed] }
+        toStatus: { type: string, enum: [Under review, Acknowledged, Escalated, Dismissed] }
+        operatorId: { type: string }
+        operatorRole: { type: string, enum: [operator] }
+        note: { type: string }
+        timestamp: { type: string }
+    SecurityEventReviewResponse:
+      type: object
+      required: [event, auditEntry, cacheVersion]
+      properties:
+        event: { $ref: "#/components/schemas/SecurityEvent" }
+        auditEntry: { $ref: "#/components/schemas/SecurityEventAudit" }
+        cacheVersion: { type: integer }
+    SecurityEventAuditResponse:
+      type: object
+      required: [eventId, entries, cacheVersion]
+      properties:
+        eventId: { type: ["string", "null"] }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/SecurityEventAudit" }
+        cacheVersion: { type: integer }
     SecurityEventStep:
       type: object
       required: [time, label, detail, state]

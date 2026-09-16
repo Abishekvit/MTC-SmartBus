@@ -376,9 +376,117 @@ export const GetSecurityEventsResponseItem = zod.object({
   "currentStop": zod.string(),
   "passengerCount": zod.number().int(),
   "destinationStop": zod.string()
-})
+}),
+  "reviewHistory": zod.array(zod.object({
+  "id": zod.string(),
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "fromStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "toStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "operatorId": zod.string(),
+  "operatorRole": zod.enum(['operator']),
+  "note": zod.string().optional(),
+  "timestamp": zod.string()
+}))
 })
 export const GetSecurityEventsResponse = zod.array(GetSecurityEventsResponseItem)
+
+
+/**
+ * @summary Review a security event as an authenticated operator
+ */
+export const reviewSecurityEventBodyNoteMax = 500;
+
+
+
+export const ReviewSecurityEventBody = zod.object({
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "note": zod.string().max(reviewSecurityEventBodyNoteMax).optional()
+})
+
+export const ReviewSecurityEventResponse = zod.object({
+  "event": zod.object({
+  "id": zod.string(),
+  "busNumber": zod.string(),
+  "location": zod.string(),
+  "physicalStop": zod.string(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "time": zod.string(),
+  "timestamp": zod.string(),
+  "eventType": zod.string(),
+  "confidence": zod.number().int(),
+  "status": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "statusDetail": zod.string(),
+  "source": zod.string(),
+  "personTrackId": zod.string(),
+  "objectId": zod.string(),
+  "objectType": zod.string(),
+  "interactionType": zod.string(),
+  "timeline": zod.array(zod.object({
+  "time": zod.string(),
+  "label": zod.string(),
+  "detail": zod.string(),
+  "state": zod.enum(['complete', 'active', 'pending'])
+})),
+  "etmContext": zod.object({
+  "transactionId": zod.string(),
+  "timestamp": zod.string(),
+  "boardingStop": zod.string(),
+  "currentStop": zod.string(),
+  "passengerCount": zod.number().int(),
+  "destinationStop": zod.string()
+}),
+  "reviewHistory": zod.array(zod.object({
+  "id": zod.string(),
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "fromStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "toStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "operatorId": zod.string(),
+  "operatorRole": zod.enum(['operator']),
+  "note": zod.string().optional(),
+  "timestamp": zod.string()
+}))
+}),
+  "auditEntry": zod.object({
+  "id": zod.string(),
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "fromStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "toStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "operatorId": zod.string(),
+  "operatorRole": zod.enum(['operator']),
+  "note": zod.string().optional(),
+  "timestamp": zod.string()
+}),
+  "cacheVersion": zod.number().int()
+})
+
+
+/**
+ * @summary List the authenticated operator audit trail
+ */
+export const GetSecurityEventAuditQueryParams = zod.object({
+  "eventId": zod.coerce.string().optional()
+})
+
+export const GetSecurityEventAuditResponse = zod.object({
+  "eventId": zod.string().nullable(),
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "fromStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "toStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "operatorId": zod.string(),
+  "operatorRole": zod.enum(['operator']),
+  "note": zod.string().optional(),
+  "timestamp": zod.string()
+})),
+  "cacheVersion": zod.number().int()
+})
 
 
 /**
@@ -427,7 +535,18 @@ export const GetSecurityInvestigationResponseItem = zod.object({
   "currentStop": zod.string(),
   "passengerCount": zod.number().int(),
   "destinationStop": zod.string()
-})
+}),
+  "reviewHistory": zod.array(zod.object({
+  "id": zod.string(),
+  "eventId": zod.string(),
+  "action": zod.enum(['acknowledge', 'escalate', 'dismiss']),
+  "fromStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "toStatus": zod.enum(['Under review', 'Acknowledged', 'Escalated', 'Dismissed']),
+  "operatorId": zod.string(),
+  "operatorRole": zod.enum(['operator']),
+  "note": zod.string().optional(),
+  "timestamp": zod.string()
+}))
 })
 export const GetSecurityInvestigationResponse = zod.array(GetSecurityInvestigationResponseItem)
 

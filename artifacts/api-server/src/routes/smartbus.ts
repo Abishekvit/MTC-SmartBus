@@ -1,4 +1,5 @@
-import { Router, type IRouter } from "express";
+import { timingSafeEqual } from "node:crypto";
+import { Router, type IRouter, type NextFunction, type Request, type Response } from "express";
 import {
   GetBusQueryParams,
   GetOperatorBusQueryParams,
@@ -56,6 +57,50 @@ type BusState = {
   exits: number;
   tick: number;
   updatedAt: string;
+};
+
+type SecurityEventStatus = "Under review" | "Acknowledged" | "Escalated" | "Dismissed";
+type SecurityReviewAction = "acknowledge" | "escalate" | "dismiss";
+type SecurityEventStepState = "complete" | "active" | "pending";
+type SecurityReviewAudit = {
+  id: string;
+  eventId: string;
+  action: SecurityReviewAction;
+  fromStatus: SecurityEventStatus;
+  toStatus: SecurityEventStatus;
+  operatorId: string;
+  operatorRole: "operator";
+  note?: string;
+  timestamp: string;
+};
+type SecurityEventRecord = {
+  id: string;
+  busNumber: string;
+  location: string;
+  physicalStop: string;
+  latitude: number;
+  longitude: number;
+  time: string;
+  timestamp: string;
+  eventType: string;
+  confidence: number;
+  status: SecurityEventStatus;
+  statusDetail: string;
+  source: string;
+  personTrackId: string;
+  objectId: string;
+  objectType: string;
+  interactionType: string;
+  timeline: Array<{ time: string; label: string; detail: string; state: SecurityEventStepState }>;
+  etmContext: {
+    transactionId: string;
+    timestamp: string;
+    boardingStop: string;
+    currentStop: string;
+    passengerCount: number;
+    destinationStop: string;
+  };
+  reviewHistory: SecurityReviewAudit[];
 };
 
 const routeStops: Stop[] = [
@@ -136,7 +181,7 @@ const state = new Map<string, BusState>(
   ]),
 );
 
-const securityEvents = [
+const securityEvents: SecurityEventRecord[] = [
   {
     id: "security-102-1",
     busNumber: "102",
@@ -150,6 +195,7 @@ const securityEvents = [
     confidence: 87,
     status: "Under review",
     statusDetail: "AI-generated potential security event; operator review required",
+    reviewHistory: [],
     source: "CCTV camera 02 · edge model",
     personTrackId: "P03",
     objectId: "O02",
@@ -183,6 +229,7 @@ const securityEvents = [
     confidence: 72,
     status: "Acknowledged",
     statusDetail: "Reviewed as a simulated bag movement; no confirmed theft",
+    reviewHistory: [],
     source: "CCTV camera 01 · edge model",
     personTrackId: "P07",
     objectId: "O04",
@@ -207,6 +254,40 @@ const securityEvents = [
 
 const operatorRouter: IRouter = Router();
 const publicRouter: IRouter = Router();
+let securityEventCacheVersion = 1;
+
+const statusForReviewAction: Record<SecurityReviewAction, SecurityEventStatus> = {
+  acknowledge: "Acknowledged",
+  escalate: "Escalated",
+  dismiss: "Dismissed",
+};
+
+function invalidateSecurityEventCache() {
+  securityEventCacheVersion += 1;
+}
+
+function operatorTokenMatches(provided: string, expected: string) {
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expected);
+  return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
+function requireOperator(req: Request, res: Response, next: NextFunction) {
+  const authorization = req.header("authorization") ?? "";
+  const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  const configuredToken = process.env.SMARTBUS_OPERATOR_TOKEN;
+  const demoToken = process.env.NODE_ENV === "production" ? "" : "demo-operator-token";
+  const expectedToken = configuredToken || demoToken;
+
+  if (!bearerToken || !expectedToken || !operatorTokenMatches(bearerToken, expectedToken)) {
+    res.status(401).json({ error: "Authenticated operator access is required" });
+    return;
+  }
+
+  const operatorId = req.header("x-operator-id")?.trim() || "demo-operator";
+  res.locals.operator = { id: operatorId.slice(0, 80), role: "operator" as const };
+  next();
+}
 
 function routeFor(id: string) {
   return routes.find((route) => route.id === id) ?? routes[0];
@@ -402,7 +483,10 @@ operatorRouter.get("/bus", (req, res) => {
   });
 });
 
-operatorRouter.get("/security-events", (_req, res) => res.json(securityEvents));
+operatorRouter.get("/security-events", (_req, res) => {
+  res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
+  res.json(securityEvents);
+});
 
 operatorRouter.get("/security-investigation", (req, res) => {
   const query = parseQuery(GetSecurityInvestigationQueryParams, req.query);
@@ -416,7 +500,72 @@ operatorRouter.get("/security-investigation", (req, res) => {
     (!eventType || event.eventType.toLowerCase().includes(eventType)) &&
     event.confidence >= minConfidence,
   );
+  res.set("Cache-Control", "no-cache").set("ETag", `"security-events-${securityEventCacheVersion}"`);
   res.json(result);
+});
+
+operatorRouter.post("/security-events/review", requireOperator, (req, res) => {
+  const eventId = typeof req.body?.eventId === "string" ? req.body.eventId.trim() : "";
+  const action = typeof req.body?.action === "string" ? req.body.action.trim() as SecurityReviewAction : undefined;
+  const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 500) : undefined;
+  const nextStatus = action ? statusForReviewAction[action] : undefined;
+
+  if (!eventId || !action || !nextStatus) {
+    res.status(400).json({ error: "eventId and a valid review action are required" });
+    return;
+  }
+
+  const event = securityEvents.find((item) => item.id === eventId);
+  if (!event) {
+    res.status(404).json({ error: "Security event not found" });
+    return;
+  }
+
+  if (event.status === nextStatus) {
+    res.status(409).json({ error: `Event is already ${nextStatus.toLowerCase()}` });
+    return;
+  }
+
+  const previousStatus = event.status;
+  event.status = nextStatus;
+  event.statusDetail = note || (
+    nextStatus === "Acknowledged"
+      ? "Acknowledged by an authorized operator; continued monitoring recommended"
+      : nextStatus === "Escalated"
+        ? "Escalated by an authorized operator for immediate follow-up"
+        : "Dismissed by an authorized operator after review"
+  );
+  const auditEntry: SecurityReviewAudit = {
+    id: `${event.id}-review-${event.reviewHistory.length + 1}`,
+    eventId: event.id,
+    action,
+    fromStatus: previousStatus,
+    toStatus: nextStatus,
+    operatorId: res.locals.operator?.id ?? "operator",
+    operatorRole: "operator",
+    ...(note ? { note } : {}),
+    timestamp: new Date().toISOString(),
+  };
+  event.reviewHistory.push(auditEntry);
+  invalidateSecurityEventCache();
+  req.log.info({ eventId: event.id, action, operatorId: auditEntry.operatorId }, "Security event review recorded");
+  res.set("Cache-Control", "no-store").status(200).json({
+    event,
+    auditEntry,
+    cacheVersion: securityEventCacheVersion,
+  });
+});
+
+operatorRouter.get("/security-events/audit", requireOperator, (req, res) => {
+  const eventId = typeof req.query.eventId === "string" ? req.query.eventId.trim() : "";
+  if (eventId && !securityEvents.some((event) => event.id === eventId)) {
+    res.status(404).json({ error: "Security event not found" });
+    return;
+  }
+  const entries = securityEvents
+    .flatMap((event) => event.reviewHistory)
+    .filter((entry) => !eventId || entry.eventId === eventId);
+  res.json({ eventId: eventId || null, entries, cacheVersion: securityEventCacheVersion });
 });
 
 export { publicRouter as smartbusPublicRouter, operatorRouter as smartbusOperatorRouter };

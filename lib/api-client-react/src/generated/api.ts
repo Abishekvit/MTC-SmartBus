@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
@@ -23,6 +27,7 @@ import type {
   GetOperatorBusParams,
   GetRouteParams,
   GetRouteStopsParams,
+  GetSecurityEventAuditParams,
   GetSecurityInvestigationParams,
   GetStopParams,
   GetStopsParams,
@@ -31,12 +36,15 @@ import type {
   OperatorOverview,
   Route,
   SecurityEvent,
+  SecurityEventAuditResponse,
+  SecurityEventReview,
+  SecurityEventReviewResponse,
   Stop,
   StopDetails
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -947,6 +955,161 @@ export function useGetSecurityEvents<TData = Awaited<ReturnType<typeof getSecuri
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSecurityEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewSecurityEventUrl = () => {
+
+
+
+
+  return `/api/operator/security-events`
+}
+
+/**
+ * @summary Review a security event as an authenticated operator
+ */
+export const reviewSecurityEvent = async (securityEventReview: SecurityEventReview, options?: Parameters<typeof customFetch>[1]): Promise<SecurityEventReviewResponse> => {
+
+  return customFetch<SecurityEventReviewResponse>(getReviewSecurityEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(securityEventReview)
+  }
+);}
+
+
+
+
+
+export const getReviewSecurityEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewSecurityEvent>>, TError,{data: BodyType<SecurityEventReview>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewSecurityEvent>>, TError,{data: BodyType<SecurityEventReview>}, TContext> => {
+
+const mutationKey = ['reviewSecurityEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewSecurityEvent>>, {data: BodyType<SecurityEventReview>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reviewSecurityEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewSecurityEventMutationResult = NonNullable<Awaited<ReturnType<typeof reviewSecurityEvent>>>
+    export type ReviewSecurityEventMutationBody = BodyType<SecurityEventReview>
+    export type ReviewSecurityEventMutationError = ErrorType<void>
+
+    /**
+ * @summary Review a security event as an authenticated operator
+ */
+export const useReviewSecurityEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewSecurityEvent>>, TError,{data: BodyType<SecurityEventReview>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewSecurityEvent>>,
+        TError,
+        {data: BodyType<SecurityEventReview>},
+        TContext
+      > => {
+      return useMutation(getReviewSecurityEventMutationOptions(options));
+    }
+
+export const getGetSecurityEventAuditUrl = (params?: GetSecurityEventAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/operator/security-events/audit?${stringifiedParams}` : `/api/operator/security-events/audit`
+}
+
+/**
+ * @summary List the authenticated operator audit trail
+ */
+export const getSecurityEventAudit = async (params?: GetSecurityEventAuditParams, options?: Parameters<typeof customFetch>[1]): Promise<SecurityEventAuditResponse> => {
+
+  return customFetch<SecurityEventAuditResponse>(getGetSecurityEventAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSecurityEventAuditQueryKey = (params?: GetSecurityEventAuditParams,) => {
+    return [
+    `/api/operator/security-events/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSecurityEventAuditQueryOptions = <TData = Awaited<ReturnType<typeof getSecurityEventAudit>>, TError = ErrorType<void>>(params?: GetSecurityEventAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityEventAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSecurityEventAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSecurityEventAudit>>> = ({ signal }) => getSecurityEventAudit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSecurityEventAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSecurityEventAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getSecurityEventAudit>>>
+export type GetSecurityEventAuditQueryError = ErrorType<void>
+
+
+/**
+ * @summary List the authenticated operator audit trail
+ */
+
+export function useGetSecurityEventAudit<TData = Awaited<ReturnType<typeof getSecurityEventAudit>>, TError = ErrorType<void>>(
+ params?: GetSecurityEventAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSecurityEventAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSecurityEventAuditQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

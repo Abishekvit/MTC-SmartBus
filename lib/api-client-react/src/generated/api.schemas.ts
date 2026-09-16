@@ -184,6 +184,54 @@ export interface EtmContext {
   destinationStop: string;
 }
 
+export type SecurityEventAuditAction = typeof SecurityEventAuditAction[keyof typeof SecurityEventAuditAction];
+
+
+export const SecurityEventAuditAction = {
+  acknowledge: 'acknowledge',
+  escalate: 'escalate',
+  dismiss: 'dismiss',
+} as const;
+
+export type SecurityEventAuditFromStatus = typeof SecurityEventAuditFromStatus[keyof typeof SecurityEventAuditFromStatus];
+
+
+export const SecurityEventAuditFromStatus = {
+  Under_review: 'Under review',
+  Acknowledged: 'Acknowledged',
+  Escalated: 'Escalated',
+  Dismissed: 'Dismissed',
+} as const;
+
+export type SecurityEventAuditToStatus = typeof SecurityEventAuditToStatus[keyof typeof SecurityEventAuditToStatus];
+
+
+export const SecurityEventAuditToStatus = {
+  Under_review: 'Under review',
+  Acknowledged: 'Acknowledged',
+  Escalated: 'Escalated',
+  Dismissed: 'Dismissed',
+} as const;
+
+export type SecurityEventAuditOperatorRole = typeof SecurityEventAuditOperatorRole[keyof typeof SecurityEventAuditOperatorRole];
+
+
+export const SecurityEventAuditOperatorRole = {
+  operator: 'operator',
+} as const;
+
+export interface SecurityEventAudit {
+  id: string;
+  eventId: string;
+  action: SecurityEventAuditAction;
+  fromStatus: SecurityEventAuditFromStatus;
+  toStatus: SecurityEventAuditToStatus;
+  operatorId: string;
+  operatorRole: SecurityEventAuditOperatorRole;
+  note?: string;
+  timestamp: string;
+}
+
 export interface SecurityEvent {
   id: string;
   busNumber: string;
@@ -204,6 +252,36 @@ export interface SecurityEvent {
   interactionType: string;
   timeline: SecurityEventStep[];
   etmContext: EtmContext;
+  reviewHistory: SecurityEventAudit[];
+}
+
+export type SecurityEventReviewAction = typeof SecurityEventReviewAction[keyof typeof SecurityEventReviewAction];
+
+
+export const SecurityEventReviewAction = {
+  acknowledge: 'acknowledge',
+  escalate: 'escalate',
+  dismiss: 'dismiss',
+} as const;
+
+export interface SecurityEventReview {
+  eventId: string;
+  action: SecurityEventReviewAction;
+  /** @maxLength 500 */
+  note?: string;
+}
+
+export interface SecurityEventReviewResponse {
+  event: SecurityEvent;
+  auditEntry: SecurityEventAudit;
+  cacheVersion: number;
+}
+
+export interface SecurityEventAuditResponse {
+  /** @nullable */
+  eventId: string | null;
+  entries: SecurityEventAudit[];
+  cacheVersion: number;
 }
 
 export type GetRouteParams = {
@@ -234,6 +312,10 @@ stopId: string;
 
 export type GetOperatorBusParams = {
 busId: string;
+};
+
+export type GetSecurityEventAuditParams = {
+eventId?: string;
 };
 
 export type GetSecurityInvestigationParams = {

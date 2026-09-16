@@ -32,6 +32,7 @@ import {
   getGetRouteStopsQueryKey,
   getGetRoutesQueryKey,
   getGetSecurityEventsQueryKey,
+  getGetSecurityEventAuditQueryKey,
   getGetSecurityInvestigationQueryKey,
   getGetStopQueryKey,
   getGetStopsQueryKey,
@@ -43,10 +44,12 @@ import {
   useGetRouteStops,
   useGetRoutes,
   useGetSecurityEvents,
+  useReviewSecurityEvent,
   useGetSecurityInvestigation,
   useGetStop,
   useGetStops,
 } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AppShell,
   BusCard,
@@ -183,7 +186,7 @@ export function SecurityInvestigationPage() {
 }
 
 function InvestigationDetail({ event }: { event: any }) {
-  return <div className="space-y-5"><SectionCard title="Person ↔ object map" eyebrow="Track relationships"><div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-border bg-background p-5 sm:gap-6"><TrackNode label={event.personTrackId} detail="person track" tone="primary" /><div className="flex items-center gap-2 text-accent-foreground"><span className="hidden h-px w-12 bg-accent sm:block" /><Link2 size={20} /><span className="hidden h-px w-12 bg-accent sm:block" /></div><TrackNode label={event.objectId} detail={event.objectType} tone="accent" /></div><div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><GitBranch size={14} />{event.interactionType}</div><div className="mt-4 rounded-xl bg-accent/15 p-4 text-xs leading-5 text-primary"><strong>DEMO / AI-generated potential security event.</strong> {event.statusDetail}. This feed does not confirm a crime or identify a person.</div></SectionCard><SectionCard title="Sequence of activity" eyebrow="Video timeline"><div className="space-y-0">{event.timeline.map((step: any, index: number) => <div key={`${step.time}-${step.label}`} className="relative flex gap-3 pb-4 last:pb-0"><div className="relative flex w-5 shrink-0 justify-center"><span className={cx('z-10 mt-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-card', step.state === 'complete' ? 'bg-emerald-500 text-white' : step.state === 'active' ? 'bg-accent text-primary' : 'bg-secondary text-muted-foreground')}>{index + 1}</span>{index < event.timeline.length - 1 && <span className="absolute top-5 h-full w-px bg-border" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 text-sm font-bold text-primary"><span>{step.label}</span><span className="font-data text-[10px] text-muted-foreground">{step.time}</span></div><p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p></div></div>)}</div></SectionCard><div className="grid gap-5 lg:grid-cols-2"><SectionCard title="Event context" eyebrow="Bus and location"><div className="space-y-3 text-xs"><ContextRow label="Bus number" value={event.busNumber} /><ContextRow label="Timestamp" value={event.timestamp} /><ContextRow label="Current physical stop" value={event.physicalStop} /><ContextRow label="GPS location" value={`${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`} /><ContextRow label="Detection source" value={event.source} /><ContextRow label="Event status" value={event.status} /></div></SectionCard><SectionCard title="ETM destination context" eyebrow="Passenger-flow correlation"><div className="space-y-3 text-xs"><ContextRow label="Transaction" value={event.etmContext.transactionId} /><ContextRow label="Boarding stop" value={event.etmContext.boardingStop} /><ContextRow label="Current stop" value={event.etmContext.currentStop} /><ContextRow label="Destination stage" value={event.etmContext.destinationStop} /><ContextRow label="Passenger count" value={`${event.etmContext.passengerCount} pax`} /><ContextRow label="ETM timestamp" value={event.etmContext.timestamp} /></div><p className="mt-4 text-xs leading-5 text-muted-foreground">ETM destination data is used only to correlate passenger flow and security context. Fare rules are not inferred or changed.</p></SectionCard></div></div>;
+  return <div className="space-y-5"><SectionCard title="Person ↔ object map" eyebrow="Track relationships"><div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-border bg-background p-5 sm:gap-6"><TrackNode label={event.personTrackId} detail="person track" tone="primary" /><div className="flex items-center gap-2 text-accent-foreground"><span className="hidden h-px w-12 bg-accent sm:block" /><Link2 size={20} /><span className="hidden h-px w-12 bg-accent sm:block" /></div><TrackNode label={event.objectId} detail={event.objectType} tone="accent" /></div><div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><GitBranch size={14} />{event.interactionType}</div><div className="mt-4 rounded-xl bg-accent/15 p-4 text-xs leading-5 text-primary"><strong>DEMO / AI-generated potential security event.</strong> {event.statusDetail}. This feed does not confirm a crime or identify a person.</div><SecurityReviewActions event={event} /><ReviewHistory entries={event.reviewHistory} /></SectionCard><SectionCard title="Sequence of activity" eyebrow="Video timeline"><div className="space-y-0">{event.timeline.map((step: any, index: number) => <div key={`${step.time}-${step.label}`} className="relative flex gap-3 pb-4 last:pb-0"><div className="relative flex w-5 shrink-0 justify-center"><span className={cx('z-10 mt-0.5 grid h-5 w-5 place-items-center rounded-full border-2 border-card', step.state === 'complete' ? 'bg-emerald-500 text-white' : step.state === 'active' ? 'bg-accent text-primary' : 'bg-secondary text-muted-foreground')}>{index + 1}</span>{index < event.timeline.length - 1 && <span className="absolute top-5 h-full w-px bg-border" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2 text-sm font-bold text-primary"><span>{step.label}</span><span className="font-data text-[10px] text-muted-foreground">{step.time}</span></div><p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p></div></div>)}</div></SectionCard><div className="grid gap-5 lg:grid-cols-2"><SectionCard title="Event context" eyebrow="Bus and location"><div className="space-y-3 text-xs"><ContextRow label="Bus number" value={event.busNumber} /><ContextRow label="Timestamp" value={event.timestamp} /><ContextRow label="Current physical stop" value={event.physicalStop} /><ContextRow label="GPS location" value={`${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)}`} /><ContextRow label="Detection source" value={event.source} /><ContextRow label="Event status" value={event.status} /></div></SectionCard><SectionCard title="ETM destination context" eyebrow="Passenger-flow correlation"><div className="space-y-3 text-xs"><ContextRow label="Transaction" value={event.etmContext.transactionId} /><ContextRow label="Boarding stop" value={event.etmContext.boardingStop} /><ContextRow label="Current stop" value={event.etmContext.currentStop} /><ContextRow label="Destination stage" value={event.etmContext.destinationStop} /><ContextRow label="Passenger count" value={`${event.etmContext.passengerCount} pax`} /><ContextRow label="ETM timestamp" value={event.etmContext.timestamp} /></div><p className="mt-4 text-xs leading-5 text-muted-foreground">ETM destination data is used only to correlate passenger flow and security context. Fare rules are not inferred or changed.</p></SectionCard></div></div>;
 }
 
 function TrackNode({ label, detail, tone }: { label: string; detail: string; tone: 'primary' | 'accent' }) {
@@ -194,9 +197,72 @@ function ContextRow({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-4 border-b border-border pb-2 last:border-0 last:pb-0"><span className="text-muted-foreground">{label}</span><strong className="text-right text-primary">{value}</strong></div>;
 }
 
+function operatorRequestOptions(): RequestInit {
+  const token = typeof window !== 'undefined'
+    ? window.sessionStorage.getItem('smartbus-operator-token') || (import.meta.env.DEV ? 'demo-operator-token' : '')
+    : '';
+  return {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Operator-Id': 'operator-console',
+    },
+  };
+}
+
+function SecurityReviewActions({ event }: { event: any }) {
+  const queryClient = useQueryClient();
+  const mutation = useReviewSecurityEvent({
+    request: operatorRequestOptions(),
+    mutation: {
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: getGetSecurityEventsQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetSecurityInvestigationQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetSecurityEventAuditQueryKey() }),
+          queryClient.invalidateQueries({ queryKey: getGetOperatorOverviewQueryKey() }),
+        ]);
+      },
+    },
+  });
+  const actions = [
+    { action: 'acknowledge' as const, label: 'Acknowledge', className: 'border-primary/30 text-primary hover:bg-primary/10' },
+    { action: 'escalate' as const, label: 'Escalate', className: 'border-destructive/30 text-destructive hover:bg-destructive/10' },
+    { action: 'dismiss' as const, label: 'Dismiss', className: 'border-border text-muted-foreground hover:bg-secondary hover:text-primary' },
+  ];
+  return <div className="mt-3 border-t border-current/10 pt-3">
+    <div className="flex flex-wrap gap-2">
+      {actions.map((item) => <button
+        key={item.action}
+        type="button"
+        data-testid={`button-${item.action}-${event.id}`}
+        disabled={mutation.isPending || event.status === ({ acknowledge: 'Acknowledged', escalate: 'Escalated', dismiss: 'Dismissed' } as const)[item.action]}
+        onClick={() => mutation.mutate({ data: { eventId: event.id, action: item.action } })}
+        className={cx('rounded-lg border px-3 py-2 text-[11px] font-bold disabled:cursor-not-allowed disabled:opacity-40', item.className)}
+      >{mutation.isPending ? 'Saving…' : item.label}</button>)}
+    </div>
+    {mutation.isError && <p className="mt-2 text-xs font-semibold text-destructive">Review could not be saved. Confirm your operator session and try again.</p>}
+  </div>;
+}
+
+function ReviewHistory({ entries }: { entries?: any[] }) {
+  if (!entries?.length) return null;
+  return <div className="mt-3 rounded-lg bg-secondary/60 p-3">
+    <div className="mb-2 text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Review audit trail</div>
+    <div className="space-y-2">
+      {entries.slice().reverse().map((entry) => <div key={entry.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <span className="font-bold text-primary">{entry.toStatus}</span>
+        <span>by {entry.operatorId}</span>
+        <span>·</span>
+        <span>{new Date(entry.timestamp).toLocaleString()}</span>
+        {entry.note && <span className="basis-full text-primary">“{entry.note}”</span>}
+      </div>)}
+    </div>
+  </div>;
+}
+
 function SecurityRow({ event }: { event: any }) {
   const tone = event.status === 'Escalated' ? 'border-destructive/40 bg-destructive/5' : event.status === 'Under review' ? 'border-accent/50 bg-accent/10' : 'border-border bg-background/50';
-  return <div className={cx('rounded-xl border p-4', tone)} data-testid={`row-security-${event.id}`}><div className="flex flex-wrap items-start gap-3"><span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg', event.status === 'Escalated' ? 'bg-destructive/15 text-destructive' : 'bg-secondary text-primary')}><ShieldAlert size={17} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-primary">{event.eventType}</span><StatusPill status={event.status} /></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>Bus {event.busNumber}</span><span>{event.physicalStop}</span><span>{event.time}</span></div></div><div className="text-right"><div className="font-display text-xl font-bold text-primary">{event.confidence}%</div><div className="font-data text-[9px] uppercase tracking-[.1em] text-muted-foreground">confidence</div></div></div><p className="mt-3 text-xs leading-5 text-muted-foreground">{event.statusDetail}</p><div className="mt-3 flex items-center justify-between border-t border-current/10 pt-3 text-xs text-muted-foreground"><span>Source: {event.source}</span><Link href="/operator/security/investigation" data-testid={`button-review-${event.id}`} className="font-bold text-primary underline decoration-accent underline-offset-4">Open investigation</Link></div></div>;
+  return <div className={cx('rounded-xl border p-4', tone)} data-testid={`row-security-${event.id}`}><div className="flex flex-wrap items-start gap-3"><span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg', event.status === 'Escalated' ? 'bg-destructive/15 text-destructive' : 'bg-secondary text-primary')}><ShieldAlert size={17} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-primary">{event.eventType}</span><StatusPill status={event.status} /></div><div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>Bus {event.busNumber}</span><span>{event.physicalStop}</span><span>{event.time}</span></div></div><div className="text-right"><div className="font-display text-xl font-bold text-primary">{event.confidence}%</div><div className="font-data text-[9px] uppercase tracking-[.1em] text-muted-foreground">confidence</div></div></div><p className="mt-3 text-xs leading-5 text-muted-foreground">{event.statusDetail}</p><div className="mt-3 flex items-center justify-between border-t border-current/10 pt-3 text-xs text-muted-foreground"><span>Source: {event.source}</span><Link href="/operator/security/investigation" data-testid={`button-review-${event.id}`} className="font-bold text-primary underline decoration-accent underline-offset-4">Open investigation</Link></div><SecurityReviewActions event={event} /><ReviewHistory entries={event.reviewHistory} /></div>;
 }
 
 export function NotFoundPage() {
