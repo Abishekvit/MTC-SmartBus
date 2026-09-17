@@ -9,6 +9,9 @@ const app: Express = express();
 app.use(
   pinoHttp({
     logger,
+    autoLogging: {
+      ignore: (req) => !req.url?.startsWith("/api"),
+    },
     serializers: {
       req(req) {
         return {

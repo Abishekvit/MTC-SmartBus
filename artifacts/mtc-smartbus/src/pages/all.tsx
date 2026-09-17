@@ -351,66 +351,112 @@ export function StopsPage() {
                 </div>
 
                 <div className="mt-5 border-t border-border pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-primary">Approaching buses</h3>
-                    <span className="font-data text-xs text-muted-foreground">
-                      {stopDetail.upcomingBuses?.length || 0} buses en route
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-primary">Approaching buses</h3>
+                      {(stopDetail as any).source && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 font-data text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {(stopDetail as any).source}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-data text-xs text-muted-foreground">
+                        {stopDetail.upcomingBuses?.length || 0} buses en route
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => stopDetailQuery.refetch()}
+                        className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-primary transition-colors"
+                        title="Refresh approaching buses"
+                      >
+                        <RefreshCw size={13} className={stopDetailQuery.isFetching ? 'animate-spin' : ''} />
+                      </button>
+                    </div>
                   </div>
 
                   {stopDetail.upcomingBuses && stopDetail.upcomingBuses.length > 0 ? (
                     <div className="mt-3 space-y-3">
-                      {stopDetail.upcomingBuses.map((b: any) => (
-                        <div
-                          key={b.id}
-                          className="group rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary font-display text-sm font-bold text-primary-foreground">
-                                {b.number}
+                      {stopDetail.upcomingBuses.map((b: any) => {
+                        const isArriving = b.etaMinutes <= 1;
+                        const isApproaching = b.etaMinutes > 1 && b.etaMinutes <= 5;
+                        return (
+                          <div
+                            key={b.id}
+                            className={`group rounded-xl border p-4 transition-all hover:shadow-sm ${
+                              isArriving
+                                ? 'border-emerald-500/50 bg-emerald-500/[0.04] ring-1 ring-emerald-500/20'
+                                : isApproaching
+                                ? 'border-amber-500/40 bg-card'
+                                : 'border-border bg-card hover:border-primary/40'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className={`grid h-10 w-10 place-items-center rounded-xl font-display text-sm font-bold ${
+                                  isArriving ? 'bg-emerald-600 text-white' : 'bg-primary text-primary-foreground'
+                                }`}>
+                                  {b.number}
+                                </span>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-data text-[10px] text-muted-foreground">
+                                      Route {b.routeNumber} · {b.serviceType}
+                                    </span>
+                                    {isArriving && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-1.5 py-0.2 font-data text-[9px] font-bold text-emerald-700 dark:text-emerald-400">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                        ARRIVING
+                                      </span>
+                                    )}
+                                    {isApproaching && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-1.5 py-0.2 font-data text-[9px] font-bold text-amber-700 dark:text-amber-400">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        APPROACHING
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-sm font-bold text-primary">
+                                    {b.origin} <span className="text-muted-foreground font-normal">to</span> {b.destination}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className={`font-display text-2xl font-bold ${isArriving ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`}>
+                                  {isArriving ? 'NOW' : `${b.etaMinutes}m`}
+                                </div>
+                                <div className="font-data text-[10px] uppercase text-muted-foreground">
+                                  {isArriving ? 'At platform' : 'ETA to stop'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-xs">
+                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                                <Navigation size={13} /> {b.currentLocation}
                               </span>
-                              <div>
-                                <div className="font-data text-[10px] text-muted-foreground">
-                                  Route {b.routeNumber} · {b.serviceType}
-                                </div>
-                                <div className="text-sm font-bold text-primary">
-                                  {b.origin} <span className="text-muted-foreground font-normal">to</span> {b.destination}
-                                </div>
-                              </div>
+                              <span className="font-medium text-primary">
+                                {b.currentOccupancy} / {b.capacity} pax ({b.crowding})
+                              </span>
                             </div>
-                            <div className="text-right">
-                              <div className="font-display text-2xl font-bold text-primary">
-                                {b.etaMinutes}<span className="text-xs font-semibold text-muted-foreground">m</span>
-                              </div>
-                              <div className="font-data text-[10px] uppercase text-muted-foreground">ETA to stop</div>
+
+                            <div className="mt-3">
+                              <OccupancyBar value={b.currentOccupancy} capacity={b.capacity} />
+                            </div>
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <StatusPill status={isArriving ? 'LIVE' : b.status} />
+                              <Link
+                                href={`/bus/${b.id}?targetStopId=${activeStopId}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
+                              >
+                                Track bus live <ArrowRight size={13} />
+                              </Link>
                             </div>
                           </div>
-
-                          <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-3 text-xs">
-                            <span className="flex items-center gap-1.5 text-muted-foreground">
-                              <Navigation size={13} /> Near {b.currentLocation}
-                            </span>
-                            <span className="font-medium text-primary">
-                              {b.currentOccupancy} / {b.capacity} pax ({b.crowding})
-                            </span>
-                          </div>
-
-                          <div className="mt-3">
-                            <OccupancyBar value={b.currentOccupancy} capacity={b.capacity} />
-                          </div>
-
-                          <div className="mt-3 flex items-center justify-between">
-                            <StatusPill status={b.status} />
-                            <Link
-                              href={`/bus/${b.id}?targetStopId=${activeStopId}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-opacity hover:opacity-90"
-                            >
-                              Track bus live <ArrowRight size={13} />
-                            </Link>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="mt-3 rounded-xl border border-border/80 bg-secondary/40 p-5 text-center text-sm text-muted-foreground">

@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BusFront,
   CircleHelp,
+  Compass,
   Gauge,
   Landmark,
   MapPin,
@@ -37,6 +38,7 @@ export function Logo() {
 
 const navItems = [
   { href: '/', label: 'Find a bus', icon: Search },
+  { href: '/transit-planner', label: 'Live BusMaps', icon: Compass },
   { href: '/stops', label: 'Physical stops', icon: MapPin },
   { href: '/routes', label: 'Routes', icon: RouteIcon },
 ];
@@ -63,8 +65,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
         <div className="mt-9 rounded-xl border border-sidebar-border bg-sidebar-accent/70 p-3">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.13em] text-accent"><span className="pulse-dot h-2 w-2 rounded-full bg-accent" /> Demo data</div>
-          <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/60">Useful for exploring the experience. Not a live production feed.</p>
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[.13em] text-emerald-400">
+            <span className="pulse-dot h-2 w-2 rounded-full bg-emerald-400" /> BusMaps Live API
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-sidebar-foreground/60">
+            Connected to capi.busmaps.com. Live scheduled departures and transit routing enabled.
+          </p>
         </div>
         <nav className="mt-8 space-y-1" aria-label="Passenger navigation">
           <p className="mb-3 px-3 font-data text-[10px] uppercase tracking-[.16em] text-sidebar-foreground/40">Passenger</p>
@@ -95,10 +101,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 export function DemoBanner() {
-  return <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/45 bg-accent/20 px-4 py-3 text-sm text-primary">
-    <div className="flex items-center gap-2"><Signal size={16} /><span><strong>Demo mode.</strong> Occupancy and arrival times are simulated for this preview.</span></div>
-    <span className="font-data text-[10px] uppercase tracking-[.13em] text-primary/60">Refreshes every 30 sec</span>
-  </div>;
+  return (
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+        </span>
+        <span>
+          <strong className="font-semibold text-emerald-900 dark:text-emerald-300">BusMaps API Active.</strong> Real-time transit departures and routing connected via authenticated key.
+        </span>
+      </div>
+      <Link href="/transit-planner" className="font-data text-xs font-semibold text-emerald-800 dark:text-emerald-400 underline hover:opacity-80">
+        Live BusMaps Hub →
+      </Link>
+    </div>
+  );
 }
 
 export function PageTitle({ eyebrow, title, description, action }: { eyebrow: string; title: ReactNode; description?: string; action?: ReactNode }) {
@@ -145,6 +163,19 @@ export function RouteTimeline({ stops, active = 0 }: { stops: any[]; active?: nu
   return <div className="relative space-y-0">{stops.map((stop, i) => <div key={stop.id ?? i} className="relative flex gap-4 pb-5 last:pb-0"><div className="relative flex w-5 shrink-0 justify-center"><div className={cx('z-10 mt-1.5 h-3.5 w-3.5 rounded-full border-[3px] border-card', i < active ? 'bg-emerald-500' : i === active ? 'bg-accent ring-4 ring-accent/25' : 'bg-muted-foreground/35')} />{i < stops.length - 1 && <div className={cx('absolute top-5 h-full w-px', i < active ? 'bg-emerald-500' : 'bg-border')} />}</div><div className="min-w-0 flex-1"><div className={cx('text-sm font-semibold', i === active ? 'text-primary' : 'text-muted-foreground')}>{stop.name}</div><div className="mt-1 flex items-center gap-2 font-data text-[10px] text-muted-foreground">{i === active ? <><Timer size={12} />Your selected stop</> : <>{String(i + 1).padStart(2, '0')} · physical stop</>}</div></div></div>)}</div>;
 }
 
-export function SectionCard({ title, eyebrow, children, className }: { title?: string; eyebrow?: string; children: ReactNode; className?: string }) {
-  return <section className={cx('rounded-2xl border border-border bg-card p-5 shadow-[0_4px_0_hsl(var(--border)/.7)] sm:p-6', className)}>{(title || eyebrow) && <div className="mb-5"><div className="font-data text-[10px] uppercase tracking-[.16em] text-muted-foreground">{eyebrow}</div>{title && <h2 className="mt-1 font-display text-xl font-bold tracking-tight text-primary">{title}</h2>}</div>}{children}</section>;
+export function SectionCard({ title, eyebrow, action, children, className }: { title?: string; eyebrow?: string; action?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={cx('rounded-2xl border border-border bg-card p-5 shadow-[0_4px_0_hsl(var(--border)/.7)] sm:p-6', className)}>
+      {(title || eyebrow || action) && (
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            {eyebrow && <div className="font-data text-[10px] uppercase tracking-[.16em] text-muted-foreground">{eyebrow}</div>}
+            {title && <h2 className="mt-1 font-display text-xl font-bold tracking-tight text-primary">{title}</h2>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
 }

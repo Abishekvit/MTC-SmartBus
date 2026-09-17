@@ -20,6 +20,7 @@ import {
   SecurityInvestigationPage,
   StopsPage,
 } from '@/pages/all';
+import { BusMapsPage } from '@/pages/busmaps-page';
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,8 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={HomePage} />
+        <Route path="/transit-planner" component={BusMapsPage} />
+        <Route path="/busmaps" component={BusMapsPage} />
         <Route path="/bus/:busId" component={BusPage} />
         <Route path="/routes" component={RoutePage} />
         <Route path="/routes/:routeId" component={RoutePage} />
