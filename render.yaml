@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: mtc-smartbus
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: SMARTBUS_FEED_MODE
+        value: demo
+      - key: SMARTBUS_FEED_TIMEOUT_MS
+        value: 8000
+      - key: BUSMAPS_API_HOST
+        value: busmaps.com
+      - key: BUSMAPS_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MTC_CAMERA_FEED_URL
+        sync: false
+      - key: MTC_CAMERA_FEED_TOKEN
+        sync: false
+      - key: MTC_ETM_FEED_URL
+        sync: false
+      - key: MTC_ETM_FEED_TOKEN
+        sync: false
+      - key: MTC_PROVIDER_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
