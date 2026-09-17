@@ -814,7 +814,7 @@ publicRouter.get("/stops", async (req, res) => {
     }
   }
 
-  res.json(allStops);
+  return res.json(allStops);
 });
 
 publicRouter.get("/stop", async (req, res) => {

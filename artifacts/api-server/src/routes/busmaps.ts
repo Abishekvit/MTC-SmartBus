@@ -11,7 +11,7 @@ export function getBusMapsCredentials() {
   return { apiKey, apiHost };
 }
 
-export async function fetchFromBusMaps(endpoint: string) {
+export async function fetchFromBusMaps(endpoint: string): Promise<any> {
   const { apiKey, apiHost } = getBusMapsCredentials();
   const url = `${BUSMAPS_BASE_URL}${endpoint}`;
 
