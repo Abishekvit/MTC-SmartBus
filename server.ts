@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createRequire } from "module";
+import { pathToFileURL } from "url";
 import apiApp from "./artifacts/api-server/src/app";
 
 const nodeRequire =
@@ -34,7 +35,8 @@ async function startServer() {
       const vitePath = nodeRequire.resolve("vite", {
         paths: [path.resolve(process.cwd(), "artifacts/mtc-smartbus")],
       });
-      const { createServer: createViteServer } = await import(vitePath);
+      const viteFileUrl = pathToFileURL(vitePath).href;
+      const { createServer: createViteServer } = await import(viteFileUrl);
       const vite = await createViteServer({
         configFile: path.resolve(process.cwd(), "artifacts/mtc-smartbus/vite.config.ts"),
         server: {
