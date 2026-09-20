@@ -377,15 +377,55 @@ const routes: Route[] = [
       { id: "central", name: "Chennai Central", sequence: 4, latitude: 13.0827, longitude: 80.2707, routes: ["23C"] },
     ],
   },
+  {
+    id: "route-570",
+    routeNumber: "570",
+    origin: "Koyambedu CMBT",
+    destination: "Siruseri IT Park",
+    serviceType: "AC Volvo",
+    liveTracking: true,
+    stops: [
+      { id: "cmbt", name: "Koyambedu CMBT", sequence: 1, latitude: 13.0694, longitude: 80.1948, routes: ["570"] },
+      { id: "vadapalani", name: "Vadapalani", sequence: 2, latitude: 13.0500, longitude: 80.2121, routes: ["570"] },
+      { id: "guindy", name: "Guindy", sequence: 3, latitude: 13.0067, longitude: 80.2206, routes: ["570"] },
+      { id: "velachery", name: "Velachery Checkpost", sequence: 4, latitude: 12.9815, longitude: 80.2180, routes: ["570"] },
+      { id: "srp-tools", name: "SRP Tools", sequence: 5, latitude: 12.9842, longitude: 80.2464, routes: ["570"] },
+      { id: "sholinganallur", name: "Sholinganallur", sequence: 6, latitude: 12.9010, longitude: 80.2279, routes: ["570"] },
+      { id: "siruseri", name: "Siruseri IT Park", sequence: 7, latitude: 12.8284, longitude: 80.2185, routes: ["570"] },
+    ],
+  },
+  {
+    id: "route-500",
+    routeNumber: "500",
+    origin: "Tambaram",
+    destination: "Chengalpattu",
+    serviceType: "Express",
+    liveTracking: true,
+    stops: [
+      { id: "tambaram", name: "Tambaram", sequence: 1, latitude: 12.9249, longitude: 80.1000, routes: ["500"] },
+      { id: "vandalur", name: "Vandalur Zoo", sequence: 2, latitude: 12.8893, longitude: 80.0811, routes: ["500"] },
+      { id: "guduvanchery", name: "Guduvanchery", sequence: 3, latitude: 12.8447, longitude: 80.0600, routes: ["500"] },
+      { id: "singaperumalkoil", name: "Singaperumal Koil", sequence: 4, latitude: 12.7635, longitude: 80.0034, routes: ["500"] },
+      { id: "chengalpattu", name: "Chengalpattu Bus Stand", sequence: 5, latitude: 12.6939, longitude: 79.9757, routes: ["500"] },
+    ],
+  },
 ];
 
 const buses = [
   { id: "bus-102", number: "102", routeId: "route-102", serviceType: "Express", capacity: 52, stopIndex: 5, occupancy: 32 },
+  { id: "bus-102b", number: "102B", routeId: "route-102", serviceType: "Deluxe", capacity: 48, stopIndex: 2, occupancy: 28 },
+  { id: "bus-102x", number: "102X", routeId: "route-102", serviceType: "AC Express", capacity: 45, stopIndex: 8, occupancy: 39 },
   { id: "bus-21g", number: "21G", routeId: "route-21g", serviceType: "Ordinary", capacity: 48, stopIndex: 1, occupancy: 41 },
+  { id: "bus-21g2", number: "21G-S", routeId: "route-21g", serviceType: "Express", capacity: 52, stopIndex: 3, occupancy: 45 },
   { id: "bus-23c", number: "23C", routeId: "route-23c", serviceType: "Deluxe", capacity: 44, stopIndex: 1, occupancy: 23 },
+  { id: "bus-23c2", number: "23C-A", routeId: "route-23c", serviceType: "Pink", capacity: 46, stopIndex: 2, occupancy: 30 },
   { id: "bus-70c", number: "70C", routeId: "route-102", serviceType: "Ordinary", capacity: 52, stopIndex: 3, occupancy: 51 },
   { id: "bus-18d", number: "18D", routeId: "route-21g", serviceType: "E/V Deluxe", capacity: 52, stopIndex: 0, occupancy: 18 },
   { id: "bus-5e", number: "5E", routeId: "route-23c", serviceType: "Pink", capacity: 46, stopIndex: 2, occupancy: 36 },
+  { id: "bus-570a", number: "570", routeId: "route-570", serviceType: "AC Volvo", capacity: 40, stopIndex: 3, occupancy: 34 },
+  { id: "bus-570b", number: "570-EX", routeId: "route-570", serviceType: "AC Volvo", capacity: 40, stopIndex: 5, occupancy: 22 },
+  { id: "bus-500a", number: "500", routeId: "route-500", serviceType: "Express", capacity: 54, stopIndex: 1, occupancy: 48 },
+  { id: "bus-500b", number: "500-D", routeId: "route-500", serviceType: "Deluxe", capacity: 50, stopIndex: 3, occupancy: 19 },
 ];
 
 const state = new Map<string, BusState>(
@@ -578,6 +618,22 @@ function findStop(identifier?: string) {
 
 function getBusState(busId: string) {
   return state.get(busId) ?? state.get("bus-102")!;
+}
+
+export function getLiveTelemetryForBus(busNumberOrRoute: string) {
+  if (!busNumberOrRoute) return null;
+  const bus = findBus(busNumberOrRoute);
+  if (!bus) return null;
+  const busState = state.get(bus.id);
+  if (!busState) return null;
+  const crowding = crowdingFor(busState.occupancy, bus.capacity);
+  return {
+    occupancy: busState.occupancy,
+    capacity: bus.capacity,
+    crowding,
+    stopIndex: busState.stopIndex,
+    updatedAt: busState.updatedAt,
+  };
 }
 
 function crowdingFor(occupancy: number, capacity: number): Crowding {
@@ -940,6 +996,80 @@ publicRouter.get("/stop", async (req, res) => {
     upcomingBuses,
     source: liveUpcomingBuses.length > 0 ? "BusMaps Real-Time Timetable" : "Simulated MTC Fleet",
   });
+});
+
+publicRouter.post("/feeds/etm", (req, res) => {
+  const { busId, occupancy, boardings, alightings } = req.body || {};
+  const targetBus = buses.find((b) => b.number === busId || b.id === busId);
+  if (targetBus && typeof occupancy === "number") {
+    targetBus.occupancy = occupancy;
+    const busState = getBusState(targetBus.id);
+    busState.occupancy = occupancy;
+    if (typeof boardings === "number") busState.entries += boardings;
+    if (typeof alightings === "number") busState.exits += alightings;
+    busState.updatedAt = new Date().toISOString();
+  }
+  return res.json({ status: "SUCCESS", receivedAt: new Date().toISOString(), occupancy });
+});
+
+publicRouter.post("/feeds/camera", (req, res) => {
+  const { busId, calculatedCamOccupancy, inCount, outCount } = req.body || {};
+  const targetBus = buses.find((b) => b.number === busId || b.id === busId);
+  let status = "NORMAL_MATCH";
+  let reconciledOccupancy = calculatedCamOccupancy;
+
+  if (targetBus) {
+    const etmOccupancy = targetBus.occupancy;
+    const delta = Math.abs((calculatedCamOccupancy ?? etmOccupancy) - etmOccupancy);
+
+    if (delta > 2) {
+      status = "CAMERA_VALUE_DIFFERENT";
+      reconciledOccupancy = Math.round((etmOccupancy + (calculatedCamOccupancy ?? etmOccupancy)) / 2);
+      targetBus.occupancy = reconciledOccupancy;
+    } else if (typeof calculatedCamOccupancy === "number") {
+      targetBus.occupancy = calculatedCamOccupancy;
+    }
+  }
+
+  return res.json({ status, reconciledOccupancy, receivedAt: new Date().toISOString() });
+});
+
+publicRouter.post("/feeds/security-events", (req, res) => {
+  const { busId, eventType, location } = req.body || {};
+  const newEvent: SecurityEventRecord = {
+    id: `security-sim-${Date.now()}`,
+    busNumber: String(busId || "102"),
+    location: String(location || "Adyar O.T."),
+    physicalStop: String(location || "Adyar O.T."),
+    latitude: 13.0065,
+    longitude: 80.2561,
+    time: new Date().toLocaleTimeString(),
+    timestamp: new Date().toISOString(),
+    eventType: String(eventType || "THEFT_SUSPECTED"),
+    confidence: 89,
+    status: "Under review",
+    statusDetail: "SIMULATOR TRIGGERED · Edge camera detected rapid motion pattern; operator review required",
+    reviewHistory: [],
+    source: "MTC TELEMETRY SIMULATOR · Camera Feed",
+    personTrackId: "P" + Math.floor(Math.random() * 90 + 10),
+    objectId: "O" + Math.floor(Math.random() * 90 + 10),
+    objectType: "bag",
+    interactionType: "Rapid movement → object contact",
+    timeline: [
+      { time: new Date().toLocaleTimeString(), label: "Detection", detail: "Suspicious interaction detected", state: "active" },
+    ],
+    etmContext: {
+      transactionId: `ETM-SIM-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      boardingStop: String(location || "Adyar O.T."),
+      currentStop: String(location || "Adyar O.T."),
+      passengerCount: 30,
+      destinationStop: "Kelambakkam",
+    },
+  };
+
+  securityEvents.unshift(newEvent);
+  return res.json({ status: "ALERT_LOGGED", event: newEvent });
 });
 
 operatorRouter.get("/overview", async (_req, res) => {

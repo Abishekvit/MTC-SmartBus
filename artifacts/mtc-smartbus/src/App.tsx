@@ -18,6 +18,7 @@ import {
   RoutePage,
   SecurityPage,
   SecurityInvestigationPage,
+  SimulatorPage,
   StopsPage,
 } from '@/pages/all';
 import { BusMapsPage } from '@/pages/busmaps-page';
@@ -41,6 +42,8 @@ function Router() {
         <Route path="/operator/bus/:busId" component={OperatorBusPage} />
         <Route path="/operator/security" component={SecurityPage} />
         <Route path="/operator/security/investigation" component={SecurityInvestigationPage} />
+        <Route path="/operator/simulator" component={SimulatorPage} />
+        <Route path="/simulator" component={SimulatorPage} />
         <Route component={NotFoundPage} />
       </Switch>
     </RoutedErrorBoundary>

@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { getLiveTelemetryForBus } from "./smartbus";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,13 @@ function formatApproachingBus(dep: any, requestEpochSeconds: number, stopLat?: n
     statusLabel = "Scheduled run";
     occupancy = 15;
     crowding = "Low";
+  }
+
+  // Cross-reference live telemetry state from simulator / main SmartBus API
+  const liveTelemetry = getLiveTelemetryForBus(dep.routeShortName);
+  if (liveTelemetry) {
+    occupancy = liveTelemetry.occupancy;
+    crowding = liveTelemetry.crowding;
   }
 
   // Parse origin and destination from routeLongName ("Island Ground TO Periyar Nagar")
@@ -413,9 +421,14 @@ router.get("/isochrone", async (req: Request, res: Response) => {
     if (!location) {
       location = "13.0827,80.2707";
     }
-    const maxDuration = req.query.maxDuration ? `&maxDuration=${encodeURIComponent(String(req.query.maxDuration))}` : "";
-    const data = await fetchFromBusMaps(`/v1/transit/isochrone?location=${encodeURIComponent(location)}${maxDuration}`);
-    return res.json(data);
+    const data = await fetchFromBusMaps(`/v1/transit/isochrone?location=${encodeURIComponent(location)}`);
+    return res.json({
+      location,
+      reachableStopCount: data.reachableStopCount || 0,
+      stopsCount: data.reachableStopCount || 0,
+      maxDuration: 60,
+      contours: data.contours || [],
+    });
   } catch (error: any) {
     return res.status(502).json({ error: error.message || "BusMaps isochrone request failed" });
   }

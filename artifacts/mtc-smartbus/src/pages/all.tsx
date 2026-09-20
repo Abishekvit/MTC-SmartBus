@@ -661,3 +661,5 @@ export function NotFoundPage() {
   const [, navigate] = useLocation();
   return <AppShell><div className="flex min-h-[70vh] items-center justify-center"><div className="max-w-md text-center"><div className="font-data text-sm text-accent-foreground">404 · ROUTE NOT FOUND</div><h1 className="mt-3 font-display text-5xl font-bold tracking-tight text-primary">That bus left the page.</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">This view is not part of the passenger or operator routes yet.</p><button type="button" data-testid="button-go-home" className="mt-7 rounded-lg bg-primary px-5 py-3 text-xs font-bold text-primary-foreground hover:opacity-90" onClick={() => navigate('/')}>Return to SmartBus</button></div></div></AppShell>;
 }
+
+export { SimulatorPage } from './simulator-page';

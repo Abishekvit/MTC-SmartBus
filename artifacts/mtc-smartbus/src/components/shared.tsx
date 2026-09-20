@@ -46,6 +46,7 @@ const operatorItems = [
   { href: '/operator', label: 'Fleet overview', icon: Gauge },
   { href: '/operator/security', label: 'Security events', icon: ShieldCheck },
   { href: '/operator/security/investigation', label: 'Object tracking', icon: Signal },
+  { href: '/operator/simulator', label: 'Feed Simulator', icon: Radio },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -85,6 +86,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           {operatorItems.map((item) => {
             const Icon = item.icon;
             const active = location.startsWith(item.href);
+            const isExternal = item.href.startsWith('http');
+            if (isExternal) {
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid={`link-nav-${item.label.toLowerCase().replaceAll(' ', '-')}`}
+                  onClick={() => setMobileOpen(false)}
+                  className="group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                >
+                  <Icon size={17} />
+                  <span>{item.label}</span>
+                </a>
+              );
+            }
             return <Link key={item.href} href={item.href} data-testid={`link-nav-${item.label.toLowerCase().replaceAll(' ', '-')}`} onClick={() => setMobileOpen(false)} className={cx('group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold', active ? 'bg-sidebar-accent text-sidebar-foreground' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-foreground')}><Icon size={17} /><span>{item.label}</span></Link>;
           })}
         </nav>
